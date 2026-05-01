@@ -1226,13 +1226,20 @@
 
     function selesaikanUtang(u) { 
         u.status = 'Lunas'; 
+        
+        // 🕒 MESIN WAKTU KASBON: Ganti tanggal ke Hari Pelunasan!
+        let tglLunas = ambilTanggal();
+        
         if(u.rincianBarang) { 
             u.rincianBarang.forEach(r => { 
                 if(r.transId) { 
                     let td = db.transaksi.find(t => String(t.id) === String(r.transId)); 
-                    if(td) td.status = 'Lunas'; 
+                    if(td) {
+                        td.status = 'Lunas'; 
+                        td.tanggal = tglLunas; // Ubah tanggal transaksi aslinya
+                    }
                 } else if(u.jenis === 'Piutang') { 
-                    db.transaksi.push({ id: Date.now() + Math.random(), tanggal: r.tanggal||ambilTanggal(), namaProduk: r.produk || u.namaProduk || 'Pelunasan Kasbon', jumlah: 1, modal: 0, total: r.nominal, untung: r.nominal, status: 'Lunas', pembeli: u.nama, dompetId: 'none' }); 
+                    db.transaksi.push({ id: Date.now() + Math.random(), tanggal: tglLunas, namaProduk: r.produk || u.namaProduk || 'Pelunasan Kasbon', jumlah: 1, modal: 0, total: r.nominal, untung: r.nominal, status: 'Lunas', pembeli: u.nama, dompetId: u.dompetId || 'none' }); 
                 } 
             }); 
         } 
@@ -1765,7 +1772,19 @@
         tutupPencarian(); 
     }
 
-    function tambahUtangOtomatis(t) { let existing = db.utang.find(u => u.nama === t.pembeli && u.jenis === 'Piutang' && u.status !== 'Lunas'); let rincian = { transId: t.id, tanggal: t.tanggal, hari: getNamaHari(t.tanggal), produk: t.namaProduk, nominal: t.total }; if(existing) { existing.nominal += t.total; if(!existing.rincianBarang) existing.rincianBarang=[]; existing.rincianBarang.push(rincian); } else db.utang.push({ id: Date.now(), transId: null, jenis: 'Piutang', nama: t.pembeli, namaProduk: "Multiple", nominal: t.total, status: 'Belum Lunas', cicilan: [], rincianBarang: [rincian] }); }
+    function tambahUtangOtomatis(t) { 
+        let existing = db.utang.find(u => u.nama === t.pembeli && u.jenis === 'Piutang' && u.status !== 'Lunas'); 
+        let rincian = { transId: t.id, tanggal: t.tanggal, hari: getNamaHari(t.tanggal), produk: t.namaProduk, nominal: t.total }; 
+        
+        if(existing) { 
+            existing.nominal += t.total; 
+            if(!existing.rincianBarang) existing.rincianBarang=[]; 
+            existing.rincianBarang.push(rincian); 
+        } else { 
+            // Tambahin "dompetId: t.dompetMasuk" biar sistem ingat uangnya harus masuk ke dompet mana saat lunas
+            db.utang.push({ id: Date.now(), transId: null, jenis: 'Piutang', nama: t.pembeli, namaProduk: "Multiple", nominal: t.total, status: 'Belum Lunas', cicilan: [], rincianBarang: [rincian], dompetId: t.dompetMasuk || 'none' }); 
+        } 
+    }
     function hapusDariUtangOtomatis(transId) { db.utang.forEach(u => { if(u.rincianBarang) { let idx = u.rincianBarang.findIndex(r => String(r.transId) === String(transId)); if(idx > -1) { u.nominal -= u.rincianBarang[idx].nominal; u.rincianBarang.splice(idx, 1); } } }); db.utang = db.utang.filter(u => (u.rincianBarang && u.rincianBarang.length > 0) || u.nominal > 0); }
     function updateUtangOtomatis(t) { db.utang.forEach(u => { if(u.rincianBarang) { let r = u.rincianBarang.find(x => String(x.transId) === String(t.id)); if(r) { u.nominal = (u.nominal - r.nominal) + t.total; r.produk = t.namaProduk; r.nominal = t.total; r.tanggal = t.tanggal; r.hari = getNamaHari(t.tanggal); } } }); }
     function eksekusiSimpanEditTransaksi() { 
