@@ -2068,7 +2068,11 @@
         let dt = new Date(); dt.setDate(dt.getDate()-7); let tM = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
         
         let dh = db.transaksi.reduce((s, t) => { 
+            // Jika centang "Khusus Kasbon" NYALA, abaikan yang lunas
             if(hK && t.status === 'Lunas') return s;
+            
+            // JIKA centang "Khusus Kasbon" MATI (Default), ABAIKAN YANG NGASBON! (Hanya hitung Lunas)
+            if(!hK && t.status !== 'Lunas') return s;
             
             let ok=false; 
             if(p==='semua') ok=true; 
