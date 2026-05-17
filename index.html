@@ -1080,17 +1080,30 @@
             if(!nmProd) return alert("Nama produk tidak boleh kosong!");
             if(qty < 1) return alert("Jumlah barang minimal 1!");
             
-            let isBaru = false, existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
-            if(!existing && document.getElementById('kasirSimpanProduk').checked) { 
-                db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, jenis: 'Digital' }); 
-                isBaru = true; 
+            // --- MESIN UPDATE PRODUK OTOMATIS ---
+            let isBaru = false, isUpdate = false;
+            let existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
+            
+            if(document.getElementById('kasirSimpanProduk').checked) { 
+                if(!existing) {
+                    db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, dompetModal: dModalId, dompetMasuk: dMasukId, jenis: 'Digital' }); 
+                    isBaru = true; 
+                } else {
+                    existing.modal = m;
+                    existing.harga = j;
+                    existing.dompetModal = dModalId;
+                    existing.dompetMasuk = dMasukId;
+                    isUpdate = true;
+                }
             }
+            // -------------------------------------
             
             let pelIdx = document.getElementById('kasirPelangganId').value;
             let nmPel = document.getElementById('labelKasirPelanggan').innerText.trim();
             if(nmPel === "" || nmPel === "Umum / Pelanggan Baru") nmPel = "Umum";
             
-            let stat = document.getElementById('kasirStatus').value;
+            // INI YANG BIKIN ERROR TADI (Ubah dari kasirStatus jadi kasirStatusVal)
+            let stat = document.getElementById('kasirStatusVal').value; 
             
             let tr = { id: Date.now(), tanggal: tgl, namaProduk: nmProd, jumlah: qty, modal: m*qty, total: j*qty, untung: (j-m)*qty, status: stat, pembeli: nmPel, dompetModal: dModalId, dompetMasuk: dMasukId };
             
@@ -1100,8 +1113,15 @@
             if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= (m * qty); }
             if(stat === 'Lunas' && dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += (j * qty); }
             
-            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; document.getElementById('kasirPelangganId').value = ''; document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; document.getElementById('kasirStatus').value = 'Lunas';
-            simpanData(); alert((stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.') + (isBaru ? '\n(Produk tersimpan ke folder Umum)' : '')); 
+            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; document.getElementById('kasirPelangganId').value = ''; document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; document.getElementById('kasirStatusVal').value = 'Lunas';
+            
+            simpanData(); 
+            
+            let pesanAkhir = stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.';
+            if(isBaru) pesanAkhir += '\n(Produk baru tersimpan ke folder Umum)';
+            if(isUpdate) pesanAkhir += '\n(Data Master Produk diperbarui otomatis)';
+            
+            alert(pesanAkhir); 
         } catch(err) { alert("Error Kasir: " + err.message); }
     }
 
