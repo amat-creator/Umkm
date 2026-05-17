@@ -333,7 +333,7 @@
                     <button type="button" class="btn-outline" style="width: auto; margin-bottom: 0; padding: 10px 15px;" onclick="bukaPencarian('produk')">🔍 Cari</button>
                 </div>
                 <label style="display:flex; align-items:center; font-size:11px; margin-bottom: 15px; background: #fff3cd; padding: 6px 10px; border-radius: 6px; border: 1px solid #ffeeba;">
-                    <input type="checkbox" id="kasirSimpanProduk" checked style="width:auto; margin:0 8px 0 0;"><b style="color: #856404;">Simpan permanen ke Folder Umum</b>
+                    <input type="checkbox" id="kasirSimpanProduk" checked style="width:auto; margin:0 8px 0 0;"><b style="color: #856404;">Simpan Baru / Update Data Master Produk</b>
                 </label>
                 <div class="grid-2">
                     <div><label class="text-small">Harga Modal:</label><input type="text" inputmode="numeric" id="kasirHargaModal" placeholder="Rp 0" oninput="formatInputRupiah(event)" required></div>
@@ -341,10 +341,8 @@
                 </div>
                 <label class="text-small">Jumlah Barang (Qty):</label><input type="number" inputmode="numeric" id="kasirJumlah" placeholder="Jumlah" value="1" required>
                 <label class="text-small">Pelanggan:</label>
-                <div class="search-select" onclick="bukaPencarian('pelanggan-kasir')"><span id="labelKasirPelanggan"><b>Umum / Pelanggan Baru</b></span></div>
+                <div class="search-select" onclick="bukaPencarian('pelanggan-kasir')" style="margin-bottom: 15px;"><span id="labelKasirPelanggan"><b>Umum / Pelanggan Baru</b></span></div>
                 <input type="hidden" id="kasirPelangganId" value="">
-                <label class="text-small">Status Pembayaran:</label>
-                <select id="kasirStatus" style="margin-bottom: 15px;"><option value="Lunas">Lunas</option><option value="Piutang">Ngasbon / Piutang</option></select>
                 
                 <div style="background: #eef2f5; padding: 10px; border-radius: 8px; border: 1px solid #d1e3f8; margin-bottom: 15px;">
                     <label class="text-small text-red" style="font-weight:bold;">💼 Ambil Modal Dari Dompet:</label>
@@ -354,7 +352,11 @@
                     <select id="kasirDompetMasuk" style="background:#e8f5e9; border-color:#28a745; font-weight:bold; margin-bottom: 0;"></select>
                 </div>
                 
-                <button type="submit" class="btn-green" style="margin-top: 5px; font-size: 16px;">💳 Proses Pembayaran</button>
+                <input type="hidden" id="kasirStatusVal" value="Lunas">
+                <div class="grid-2">
+                    <button type="submit" class="btn-green" style="margin-top: 5px; font-size: 14px; padding: 15px;" onclick="document.getElementById('kasirStatusVal').value='Lunas'">✅ Bayar Lunas</button>
+                    <button type="submit" class="btn-red" style="margin-top: 5px; font-size: 14px; padding: 15px;" onclick="document.getElementById('kasirStatusVal').value='Piutang'">📒 Catat Ngasbon</button>
+                </div>
             </form>
         </div>
     </div>
