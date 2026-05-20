@@ -2598,6 +2598,7 @@
         
         let listNama = db.pelanggan.map(plg => plg.nama);
         if(!listNama.includes("Umum")) listNama.push("Umum");
+        listNama = [...new Set(listNama)]; // Buang nama dobel
 
         listNama.forEach(namaPlg => {
             // Filter Nama dulu biar enteng
@@ -2625,7 +2626,13 @@
                 }
             });
 
-            rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung });
+            // Cek apakah dia punya Kasbon Aktif
+            let adaUtang = db.utang.some(u => u.nama === namaPlg && u.status !== 'Lunas');
+
+            // 🔥 HANYA MASUKKAN KE DAFTAR JIKA ADA TRANSAKSI ATAU PUNYA UTANG
+            if (jmlTrans > 0 || adaUtang) {
+                rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung, adaUtang: adaUtang });
+            }
         });
 
         // MESIN SORTING (MENGURUTKAN DATA) PINTAR
@@ -2648,13 +2655,19 @@
                 if(index === 0) icon = "🥇"; else if(index === 1) icon = "🥈"; else if(index === 2) icon = "🥉";
             }
             
-            let styleNol = r.qty === 0 ? "opacity: 0.5; background: #fafafa;" : "background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color:var(--primary);";
+            // Tampilan buat yang gak ada transaksi tapi punya utang
+            let styleBg = r.qty === 0 ? "background: #fffafa; border-color:#ffcdd2;" : "background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color:var(--primary);";
+            let opasitas = r.qty === 0 ? "opacity: 0.8;" : "opacity: 1;";
+            let teksUtang = (r.adaUtang && r.qty === 0) ? `<span style="font-size:10px; color:#dc3545; font-weight:bold;">⚠️ Punya Kasbon</span>` : '';
 
             return `
-            <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; ${styleNol}">
+            <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${styleBg} ${opasitas}">
                 <div class="flex-between" style="border-bottom:1px dashed #ccc; padding-bottom:8px; margin-bottom:8px;">
-                    <b style="font-size:15px; color: ${r.qty > 0 ? 'var(--primary)' : '#777'};">${icon} ${r.nama}</b>
-                    <span class="badge-info" style="margin:0; background:${r.qty > 0 ? '#e8f4fd' : '#eee'};">🛒 ${r.qty}x Transaksi</span>
+                    <div>
+                        <b style="font-size:15px; color: ${r.qty > 0 ? 'var(--primary)' : '#555'};">${icon} ${r.nama}</b><br>
+                        ${teksUtang}
+                    </div>
+                    <span class="badge-info" style="margin:0; background:${r.qty > 0 ? '#e8f4fd' : '#f8d7da'}; color:${r.qty > 0 ? '#333' : '#721c24'};">🛒 ${r.qty}x Transaksi</span>
                 </div>
                 <div class="grid-3" style="text-align:center; gap:5px;">
                     <div style="background:#ffebee; padding:5px; border-radius:5px;">
@@ -2673,8 +2686,8 @@
             </div>`;
         }).join('');
 
-        document.getElementById('listRaporPelanggan').innerHTML = html || '<div class="text-small text-center" style="padding:15px; color:gray;">Pelanggan tidak ditemukan.</div>';
-    }
+        document.getElementById('listRaporPelanggan').innerHTML = html || '<div class="text-small text-center" style="padding:15px; color:gray;">Belum ada riwayat transaksi atau kasbon.</div>';
+    }}
     
 </script>
 </body>
