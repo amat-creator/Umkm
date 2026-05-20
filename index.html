@@ -2596,12 +2596,12 @@
 
         let rekap = [];
         
-        let listNama = db.pelanggan.map(plg => plg.nama);
+        // Ambil daftar unik pelanggan
+        let listNama = [...new Set(db.pelanggan.map(plg => plg.nama))];
         if(!listNama.includes("Umum")) listNama.push("Umum");
-        listNama = [...new Set(listNama)]; // Buang nama dobel
 
         listNama.forEach(namaPlg => {
-            // Filter Nama dulu biar enteng
+            // Filter Nama
             if(kw !== "" && !namaPlg.toLowerCase().includes(kw)) return; 
 
             let jmlTrans = 0; let totModal = 0; let totJual = 0; let totUntung = 0;
@@ -2626,16 +2626,17 @@
                 }
             });
 
-            // Cek apakah dia punya Kasbon Aktif
+            // Cek apakah punya utang/piutang yang belum lunas
             let adaUtang = db.utang.some(u => u.nama === namaPlg && u.status !== 'Lunas');
 
-            // 🔥 HANYA MASUKKAN KE DAFTAR JIKA ADA TRANSAKSI ATAU PUNYA UTANG
+            // --- SARINGAN GAIB ---
+            // Hanya masukkan ke rekap jika ada transaksi ATAU ada utang aktif
             if (jmlTrans > 0 || adaUtang) {
                 rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung, adaUtang: adaUtang });
             }
         });
 
-        // MESIN SORTING (MENGURUTKAN DATA) PINTAR
+        // MESIN SORTING PINTAR
         rekap.sort((a, b) => {
             if(sortMode === 'jual_desc') return b.jual - a.jual;
             if(sortMode === 'jual_asc') return a.jual - b.jual;
@@ -2650,18 +2651,16 @@
 
         let html = rekap.map((r, index) => {
             let icon = "👤";
-            // Kasi medali cuma kalau diurutin berdasarkan Juara Omset & ada angkanya
             if(sortMode === 'jual_desc' && r.jual > 0) {
                 if(index === 0) icon = "🥇"; else if(index === 1) icon = "🥈"; else if(index === 2) icon = "🥉";
             }
             
-            // Tampilan buat yang gak ada transaksi tapi punya utang
+            // Tampilan khusus jika tidak ada transaksi tapi punya kasbon
             let styleBg = r.qty === 0 ? "background: #fffafa; border-color:#ffcdd2;" : "background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color:var(--primary);";
-            let opasitas = r.qty === 0 ? "opacity: 0.8;" : "opacity: 1;";
             let teksUtang = (r.adaUtang && r.qty === 0) ? `<span style="font-size:10px; color:#dc3545; font-weight:bold;">⚠️ Punya Kasbon</span>` : '';
 
             return `
-            <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); ${styleBg} ${opasitas}">
+            <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; ${styleBg}">
                 <div class="flex-between" style="border-bottom:1px dashed #ccc; padding-bottom:8px; margin-bottom:8px;">
                     <div>
                         <b style="font-size:15px; color: ${r.qty > 0 ? 'var(--primary)' : '#555'};">${icon} ${r.nama}</b><br>
@@ -2686,8 +2685,8 @@
             </div>`;
         }).join('');
 
-        document.getElementById('listRaporPelanggan').innerHTML = html || '<div class="text-small text-center" style="padding:15px; color:gray;">Belum ada riwayat transaksi atau kasbon.</div>';
-    }}
+        document.getElementById('listRaporPelanggan').innerHTML = html || '<div class="text-small text-center" style="padding:15px; color:gray;">Tidak ada pelanggan dengan transaksi atau kasbon.</div>';
+    }
     
 </script>
 </body>
