@@ -1112,35 +1112,94 @@
             let j = getAngkaMurni(document.getElementById('kasirHargaJual').value);
             let qty = parseInt(document.getElementById('kasirJumlah').value) || 0;
             
-            let dModalId = document.getElementById('kasirDompetModal').value;
-            let dMasukId = document.getElementById('kasirDompetMasuk').value;
+            // --- KEAMANAN ANTI NGE-BLANK (NULL) ---
+            let elDompetModal = document.getElementById('kasirDompetModal');
+            let elDompetMasuk = document.getElementById('kasirDompetMasuk');
+            let dModalId = elDompetModal ? elDompetModal.value : 'none';
+            let dMasukId = elDompetMasuk ? elDompetMasuk.value : 'none';
+            // -------------------------------------
             
             if(!tgl) return alert("Pilih tanggal transaksi!");
             if(!nmProd) return alert("Nama produk tidak boleh kosong!");
             if(qty < 1) return alert("Jumlah barang minimal 1!");
             
-            let isBaru = false, existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
-            if(!existing && document.getElementById('kasirSimpanProduk').checked) { 
-                db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, jenis: 'Digital' }); 
-                isBaru = true; 
+            // --- MESIN UPDATE PRODUK OTOMATIS ---
+            let isBaru = false, isUpdate = false;
+            let existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
+            
+            if(document.getElementById('kasirSimpanProduk').checked) { 
+                if(!existing) {
+                    db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, dompetModal: dModalId, dompetMasuk: dMasukId, jenis: 'Digital' }); 
+                    isBaru = true; 
+                } else {
+                    existing.modal = m; existing.harga = j; existing.dompetModal = dModalId; existing.dompetMasuk = dMasukId;
+                    isUpdate = true;
+                }
             }
+            // -------------------------------------
             
             let pelIdx = document.getElementById('kasirPelangganId').value;
             let nmPel = document.getElementById('labelKasirPelanggan').innerText.trim();
             if(nmPel === "" || nmPel === "Umum / Pelanggan Baru") nmPel = "Umum";
             
-            let stat = document.getElementById('kasirStatus').value;
+            // Perbaikan Bug Null di Status
+            let elStatus = document.getElementById('kasirStatusVal') || document.getElementById('kasirStatus');
+            let stat = elStatus ? elStatus.value : 'Lunas';
             
             let tr = { id: Date.now(), tanggal: tgl, namaProduk: nmProd, jumlah: qty, modal: m*qty, total: j*qty, untung: (j-m)*qty, status: stat, pembeli: nmPel, dompetModal: dModalId, dompetMasuk: dMasukId };
             
             db.transaksi.push(tr); 
             if(stat !== 'Lunas') tambahUtangOtomatis(tr); 
             
+            // EKSEKUSI DOMPET
             if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= (m * qty); }
             if(stat === 'Lunas' && dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += (j * qty); }
+
+            // --- MESIN POTONG DEPOSIT OTOMATIS ---
+            let pakaiDeposit = document.getElementById('kasirPakaiDeposit') ? document.getElementById('kasirPakaiDeposit').checked : false;
+            let totalJual = j * qty;
+            let depositDipakai = 0;
+
+            if(pakaiDeposit && stat === 'Lunas') {
+                let depTersedia = Number(document.getElementById('kasirNominalDeposit').value) || 0;
+                depositDipakai = Math.min(depTersedia, totalJual); 
+                
+                if(depositDipakai > 0) {
+                    if(dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo -= depositDipakai; }
+                    
+                    let sisaPotong = depositDipakai;
+                    let utangTeman = db.utang.filter(u => u.nama === nmPel && u.jenis === 'Utang' && u.status !== 'Lunas');
+                    for(let u of utangTeman) {
+                        if(sisaPotong <= 0) break;
+                        let sisaUtangIni = (Number(u.nominal) || 0) - (u.cicilan ? u.cicilan.reduce((a,c)=>a+Number(c.nominal),0) : 0);
+                        let potongIni = Math.min(sisaPotong, sisaUtangIni);
+                        if(potongIni > 0) {
+                            if(!u.cicilan) u.cicilan = [];
+                            u.cicilan.push({ id: Date.now()+Math.random(), tanggal: tgl, hari: getNamaHari(tgl), nominal: potongIni });
+                            sisaPotong -= potongIni;
+                            let tD = u.cicilan.reduce((a,c)=>a+Number(c.nominal),0);
+                            if(tD >= u.nominal) { u.status = 'Lunas'; } 
+                        }
+                    }
+                }
+            }
+            // -------------------------------------
             
-            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; document.getElementById('kasirPelangganId').value = ''; document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; document.getElementById('kasirStatus').value = 'Lunas';
-            simpanData(); alert((stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.') + (isBaru ? '\n(Produk tersimpan ke folder Umum)' : '')); 
+            // RESET FORM KASIR (Aman dari Null)
+            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; 
+            if(document.getElementById('kasirPelangganId')) document.getElementById('kasirPelangganId').value = ''; 
+            if(document.getElementById('labelKasirPelanggan')) document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; 
+            if(elStatus) elStatus.value = 'Lunas';
+            if(document.getElementById('wadahDepositKasir')) { document.getElementById('wadahDepositKasir').style.display = 'none'; document.getElementById('kasirPakaiDeposit').checked = false; }
+            
+            simpanData(); 
+            
+            let pesanAkhir = stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.';
+            if(depositDipakai > 0) pesanAkhir = `✅ TRANSAKSI BERHASIL!\n\nHarga Total: Rp ${formatRupiah(totalJual)}\nPotong Deposit: -Rp ${formatRupiah(depositDipakai)}\nUang Tunai Diterima: Rp ${formatRupiah(totalJual - depositDipakai)}\n\nSaldo Laci Akurat & Deposit otomatis dipotong!`;
+            if(isBaru) pesanAkhir += '\n(Produk baru tersimpan ke folder Umum)';
+            if(isUpdate) pesanAkhir += '\n(Data Master Produk diperbarui)';
+            
+            alert(pesanAkhir); 
         } catch(err) { alert("Error Kasir: " + err.message); }
     }
 
