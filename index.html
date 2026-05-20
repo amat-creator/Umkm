@@ -485,6 +485,7 @@
 
     <div id="page-menu" class="page">
         <div id="main-menu-grid" class="menu-grid">
+            <div class="menu-btn" onclick="bukaSubHalaman('sub-rapor-pelanggan')"><span>👑</span>Rapor Pelanggan</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-pengeluaran')"><span>💸</span>Pengeluaran</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-grafik')"><span>📈</span>Grafik Bisnis</div>
             <div class="menu-btn" onclick="bukaHalaman('utang', null, 'Kasbon (Utang & Piutang)')"><span>📒</span>Kasbon</div>
@@ -504,6 +505,43 @@
         </div>
 
         
+
+        <div id="sub-rapor-pelanggan" class="card" style="display:none;">
+            <button type="button" class="btn-outline btn-back" onclick="kembaliKeMenu()">⬅ Kembali</button>
+            <h4>👑 Rapor Sultan (Pelanggan)</h4>
+            <p class="text-small" style="margin-bottom: 15px;">Lihat siapa yang paling sering belanja dan ngasih untung gede.</p>
+            
+            <div style="background: #f0f8ff; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #cce5ff;">
+                <select id="periodeRapor" onchange="toggleFilterRapor()" style="font-weight:bold; margin-bottom:0;">
+                    <option value="bulanIni">Bulan Ini</option>
+                    <option value="mingguan">7 Hari Terakhir</option>
+                    <option value="hariIni">Hari Ini</option>
+                    <option value="semua">Semua Waktu</option>
+                    <option value="custom">⚙️ Custom (Tanggal)</option>
+                </select>
+                <div id="wadahFilterCustomRapor" style="display: none; margin-top: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                    <div class="grid-2">
+                        <div><label class="text-small">Dari:</label><input type="date" id="tglMulaiRapor" style="margin-bottom: 0;"></div>
+                        <div><label class="text-small">Sampai:</label><input type="date" id="tglAkhirRapor" style="margin-bottom: 0;"></div>
+                    </div>
+                    <button type="button" class="btn-outline" style="padding: 8px; margin-top: 10px; margin-bottom: 0;" onclick="renderRaporPelanggan()">Cari Data</button>
+                </div>
+            </div>
+            
+            <input type="text" id="cariRaporInput" placeholder="🔍 Cari nama pelanggan..." oninput="renderRaporPelanggan()" style="border-color: var(--primary); background:#f0f8ff;">
+            
+            <select id="sortRaporSelect" onchange="renderRaporPelanggan()" style="font-weight:bold; margin-bottom: 15px; background: #fff3cd; border-color: #ffeeba;">
+                <option value="jual_desc">🏆 Urutkan: Omset (Jual) Tertinggi</option>
+                <option value="jual_asc">📉 Urutkan: Omset (Jual) Terendah</option>
+                <option value="untung_desc">💰 Urutkan: Untung Terbesar</option>
+                <option value="untung_asc">💸 Urutkan: Untung Terkecil</option>
+                <option value="trans_desc">🛒 Urutkan: Transaksi Terbanyak</option>
+                <option value="trans_asc">🛍️ Urutkan: Transaksi Paling Sedikit</option>
+                <option value="modal_desc">📦 Urutkan: Modal Keluar Terbesar</option>
+                <option value="modal_asc">📦 Urutkan: Modal Keluar Terkecil</option>
+            </select>
+            <div id="listRaporPelanggan"></div>
+        </div>
 
         <div id="sub-pengeluaran" class="card" style="display:none;">
             <button type="button" class="btn-outline btn-back" onclick="kembaliKeMenu()">⬅ Kembali</button>
@@ -964,12 +1002,13 @@
     function bukaSubHalaman(sub) { 
         document.getElementById('main-menu-grid').style.display = 'none';
         
-        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak'];
+        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak','sub-rapor-pelanggan'];
         allSub.forEach(s => { let el = document.getElementById(s); if(el) el.style.display = 'none'; });
 
         document.getElementById(sub).style.display = 'block'; 
         
         let jd = "Menu Lainnya"; 
+        if(sub==='sub-rapor-pelanggan') { jd="Rapor Pelanggan"; renderRaporPelanggan(); }
         if(sub==='sub-pengeluaran') { jd="Pengeluaran"; document.getElementById('pengeluaranTgl').value = ambilTanggal(); }
         if(sub==='sub-pelanggan') jd="Data Pelanggan"; 
         if(sub==='sub-dompet') jd="Dompet Manual"; 
@@ -996,8 +1035,8 @@
         document.getElementById('judulHalaman').innerText = jd; 
     }
     
-    function kembaliKeMenu() { 
-        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak'];
+    function kembaliKeMenu() { 
+        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak','sub-rapor-pelanggan'];
         allSub.forEach(s => { let el = document.getElementById(s); if(el) el.style.display = 'none'; });
         
         document.getElementById('main-menu-grid').style.display = 'grid'; 
@@ -1080,30 +1119,17 @@
             if(!nmProd) return alert("Nama produk tidak boleh kosong!");
             if(qty < 1) return alert("Jumlah barang minimal 1!");
             
-            // --- MESIN UPDATE PRODUK OTOMATIS ---
-            let isBaru = false, isUpdate = false;
-            let existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
-            
-            if(document.getElementById('kasirSimpanProduk').checked) { 
-                if(!existing) {
-                    db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, dompetModal: dModalId, dompetMasuk: dMasukId, jenis: 'Digital' }); 
-                    isBaru = true; 
-                } else {
-                    existing.modal = m;
-                    existing.harga = j;
-                    existing.dompetModal = dModalId;
-                    existing.dompetMasuk = dMasukId;
-                    isUpdate = true;
-                }
+            let isBaru = false, existing = db.produk.find(p => p.nama.toLowerCase() === nmProd.toLowerCase());
+            if(!existing && document.getElementById('kasirSimpanProduk').checked) { 
+                db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, jenis: 'Digital' }); 
+                isBaru = true; 
             }
-            // -------------------------------------
             
             let pelIdx = document.getElementById('kasirPelangganId').value;
             let nmPel = document.getElementById('labelKasirPelanggan').innerText.trim();
             if(nmPel === "" || nmPel === "Umum / Pelanggan Baru") nmPel = "Umum";
             
-            // INI YANG BIKIN ERROR TADI (Ubah dari kasirStatus jadi kasirStatusVal)
-            let stat = document.getElementById('kasirStatusVal').value; 
+            let stat = document.getElementById('kasirStatus').value;
             
             let tr = { id: Date.now(), tanggal: tgl, namaProduk: nmProd, jumlah: qty, modal: m*qty, total: j*qty, untung: (j-m)*qty, status: stat, pembeli: nmPel, dompetModal: dModalId, dompetMasuk: dMasukId };
             
@@ -1113,15 +1139,8 @@
             if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= (m * qty); }
             if(stat === 'Lunas' && dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += (j * qty); }
             
-            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; document.getElementById('kasirPelangganId').value = ''; document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; document.getElementById('kasirStatusVal').value = 'Lunas';
-            
-            simpanData(); 
-            
-            let pesanAkhir = stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.';
-            if(isBaru) pesanAkhir += '\n(Produk baru tersimpan ke folder Umum)';
-            if(isUpdate) pesanAkhir += '\n(Data Master Produk diperbarui otomatis)';
-            
-            alert(pesanAkhir); 
+            document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1'; document.getElementById('kasirPelangganId').value = ''; document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>'; document.getElementById('kasirStatus').value = 'Lunas';
+            simpanData(); alert((stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.') + (isBaru ? '\n(Produk tersimpan ke folder Umum)' : '')); 
         } catch(err) { alert("Error Kasir: " + err.message); }
     }
 
@@ -2493,6 +2512,111 @@
             link.click(); 
         });
     }
+    
+// ==========================================
+    // MESIN RAPOR SULTAN PELANGGAN
+    // ==========================================
+    function toggleFilterRapor() {
+        document.getElementById('wadahFilterCustomRapor').style.display = (document.getElementById('periodeRapor').value === 'custom') ? 'block' : 'none';
+        renderRaporPelanggan();
+    }
+
+    function renderRaporPelanggan() {
+        let p = document.getElementById('periodeRapor').value;
+        let tH = ambilTanggal(), bI = tH.substring(0, 7);
+        let dt = new Date(); dt.setDate(dt.getDate()-7); 
+        let tM = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+        
+        let customMulai = document.getElementById('tglMulaiRapor').value;
+        let customAkhir = document.getElementById('tglAkhirRapor').value;
+
+        // Ambil input Pencarian & mode Urutan
+        let kw = (document.getElementById('cariRaporInput') || {}).value || ""; 
+        kw = kw.toLowerCase();
+        let sortMode = (document.getElementById('sortRaporSelect') || {}).value || "jual_desc";
+
+        let rekap = [];
+        
+        let listNama = db.pelanggan.map(plg => plg.nama);
+        if(!listNama.includes("Umum")) listNama.push("Umum");
+
+        listNama.forEach(namaPlg => {
+            // Filter Nama dulu biar enteng
+            if(kw !== "" && !namaPlg.toLowerCase().includes(kw)) return; 
+
+            let jmlTrans = 0; let totModal = 0; let totJual = 0; let totUntung = 0;
+
+            db.transaksi.forEach(t => {
+                if(t.pembeli === namaPlg) {
+                    let ok = false;
+                    if(p === 'semua') ok = true;
+                    else if(p === 'bulanIni') ok = t.tanggal.startsWith(bI);
+                    else if(p === 'hariIni') ok = t.tanggal === tH;
+                    else if(p === 'mingguan') ok = (t.tanggal >= tM && t.tanggal <= tH);
+                    else if(p === 'custom') { if(customMulai && customAkhir) ok = (t.tanggal >= customMulai && t.tanggal <= customAkhir); }
+
+                    if(ok) {
+                        jmlTrans++;
+                        if(t.status === 'Lunas') {
+                            totModal += t.modal;
+                            totJual += t.total;
+                            totUntung += t.untung;
+                        }
+                    }
+                }
+            });
+
+            rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung });
+        });
+
+        // MESIN SORTING (MENGURUTKAN DATA) PINTAR
+        rekap.sort((a, b) => {
+            if(sortMode === 'jual_desc') return b.jual - a.jual;
+            if(sortMode === 'jual_asc') return a.jual - b.jual;
+            if(sortMode === 'untung_desc') return b.untung - a.untung;
+            if(sortMode === 'untung_asc') return a.untung - b.untung;
+            if(sortMode === 'trans_desc') return b.qty - a.qty;
+            if(sortMode === 'trans_asc') return a.qty - b.qty;
+            if(sortMode === 'modal_desc') return b.modal - a.modal;
+            if(sortMode === 'modal_asc') return a.modal - b.modal;
+            return b.jual - a.jual;
+        });
+
+        let html = rekap.map((r, index) => {
+            let icon = "👤";
+            // Kasi medali cuma kalau diurutin berdasarkan Juara Omset & ada angkanya
+            if(sortMode === 'jual_desc' && r.jual > 0) {
+                if(index === 0) icon = "🥇"; else if(index === 1) icon = "🥈"; else if(index === 2) icon = "🥉";
+            }
+            
+            let styleNol = r.qty === 0 ? "opacity: 0.5; background: #fafafa;" : "background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color:var(--primary);";
+
+            return `
+            <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; ${styleNol}">
+                <div class="flex-between" style="border-bottom:1px dashed #ccc; padding-bottom:8px; margin-bottom:8px;">
+                    <b style="font-size:15px; color: ${r.qty > 0 ? 'var(--primary)' : '#777'};">${icon} ${r.nama}</b>
+                    <span class="badge-info" style="margin:0; background:${r.qty > 0 ? '#e8f4fd' : '#eee'};">🛒 ${r.qty}x Transaksi</span>
+                </div>
+                <div class="grid-3" style="text-align:center; gap:5px;">
+                    <div style="background:#ffebee; padding:5px; border-radius:5px;">
+                        <div style="font-size:10px; color:#666;">Modal</div>
+                        <b class="text-red" style="font-size:12px;">Rp ${formatRupiah(r.modal)}</b>
+                    </div>
+                    <div style="background:#eef2f5; padding:5px; border-radius:5px;">
+                        <div style="font-size:10px; color:#666;">Omset (Jual)</div>
+                        <b class="text-blue" style="font-size:12px;">Rp ${formatRupiah(r.jual)}</b>
+                    </div>
+                    <div style="background:#e8f5e9; padding:5px; border-radius:5px;">
+                        <div style="font-size:10px; color:#666;">Untung</div>
+                        <b class="text-green" style="font-size:12px;">Rp ${formatRupiah(r.untung)}</b>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        document.getElementById('listRaporPelanggan').innerHTML = html || '<div class="text-small text-center" style="padding:15px; color:gray;">Pelanggan tidak ditemukan.</div>';
+    }
+    
 </script>
 </body>
 </html>
