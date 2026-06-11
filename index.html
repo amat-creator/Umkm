@@ -118,7 +118,8 @@
     <div class="header" style="position: relative;">
         <div style="position: absolute; right: 20px; top: 20px; cursor: pointer; font-size: 24px; z-index: 10;" onclick="document.getElementById('modal-sawer').classList.add('active')">☕</div>
         <h2 id="judulHalaman">Kasir</h2>
-        <div class="saldo-badge" id="badge-header-saldo">Total Saldo Sistem: Rp <span id="displaySaldo">0</span></div>
+        <div class="saldo-badge" id="badge-header-saldo" style="margin-bottom: 5px;">Total Saldo Sistem: Rp <span id="displaySaldo">0</span></div>
+<div id="badge-dompet-pribadi" style="display:none; background: rgba(0,0,0,0.15); padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; width: fit-content; margin: 0 auto; color: white;">💼 Dompet Pribadi: Rp <span id="displaySaldoPribadi">0</span></div>
     </div>
 
     <div id="modal-sawer" class="modal-popup">
@@ -709,7 +710,7 @@
             <h4>Buat Dompet Baru</h4>
             <form onsubmit="eksekusiTambahDompet(event)" style="margin-top: 10px;">
                 <input type="text" id="namaDompetBaru" placeholder="Nama Dompet (Misal: Laci Kasir)" required>
-                <select id="kategoriDompetBaru"><option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option><option value="Bank Digital">Kategori: Bank / Saldo Digital</option></select>
+                <select id="kategoriDompetBaru"><option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option><option value="Bank Digital">Kategori: Bank / Saldo Digital</option><option value="Pribadi">Kategori: Dompet Diri Sendiri (Pribadi)</option></select>
                 <input type="text" inputmode="numeric" id="saldoAwalDompet" placeholder="Saldo Awal Tercatat (Rp)" oninput="formatInputRupiah(event)" required>
                 <button type="submit" class="btn-green">➕ Tambah Dompet</button>
             </form>
@@ -939,6 +940,8 @@
         if(!db.alokasi) { db.alokasi = [{ id: Date.now(), nama: 'Putar Modal', persen: 100 }]; }
         if(!db.pengeluaran) db.pengeluaran = [];
         if(!db.tema) db.tema = '#007bff';
+        if(!db.filterRiwayat) db.filterRiwayat = 'semua';
+        if(!db.filterAlokasi) db.filterAlokasi = 'bulanIni';
 
         if(!db.templateWA) {
             db.templateWA = {
@@ -954,6 +957,11 @@
         try { ubahTema(db.tema, false); } catch(e) {}
         document.getElementById('kasirTanggal').value = ambilTanggal();
         document.getElementById('inputWarnaTema').value = db.tema;
+        filterSaatIni = db.filterRiwayat;
+        document.getElementById('filterWaktuBeranda').value = db.filterRiwayat;
+        document.getElementById('periodeAlokasi').value = db.filterAlokasi;
+        if(db.filterRiwayat === 'custom') document.getElementById('wadahFilterCustom').style.display = 'block';
+        if(db.filterAlokasi === 'custom') document.getElementById('wadahFilterCustomAlokasi').style.display = 'block';
         
         simpanData();
     };
@@ -1914,7 +1922,7 @@
         } 
     }
 
-    function ubahFilterBeranda() { filterSaatIni = document.getElementById('filterWaktuBeranda').value; document.getElementById('wadahFilterCustom').style.display = filterSaatIni === 'custom' ? 'block' : 'none'; document.getElementById('checkSemuaTransaksi').checked = false; renderDaftarTransaksiBeranda(); }
+    function ubahFilterBeranda() { filterSaatIni = document.getElementById('filterWaktuBeranda').value; db.filterRiwayat = filterSaatIni; simpanData(); document.getElementById('wadahFilterCustom').style.display = filterSaatIni === 'custom' ? 'block' : 'none'; document.getElementById('checkSemuaTransaksi').checked = false; renderDaftarTransaksiBeranda(); }
     function terapkanFilterCustom() { document.getElementById('checkSemuaTransaksi').checked = false; renderDaftarTransaksiBeranda(); }
     function togglePilihSemuaTransaksi() { let chk = document.getElementById('checkSemuaTransaksi').checked; document.querySelectorAll('.check-transaksi-beranda').forEach(cb => cb.checked = chk); }
     function togglePilihSemuaTransaksiRiwayat() { let chk = document.getElementById('checkSemuaTransaksiRiwayat').checked; document.querySelectorAll('.check-transaksi-riwayat').forEach(cb => cb.checked = chk); }
@@ -1923,7 +1931,7 @@
     function hapusTransaksi(id) { if(confirm("Yakin menghapus?")) { hapusDariUtangOtomatis(id); db.transaksi = db.transaksi.filter(t => String(t.id) !== String(id)); simpanData(); } }
 
     let tempStatusLama = "";
-    function bukaEditTransaksi(id) { let t = db.transaksi.find(x => String(x.id) === String(id)); if(!t) return; tempStatusLama = t.status; document.getElementById('editTransId').value = t.id; document.getElementById('editTransTgl').value = t.tanggal; document.getElementById('editTransPelangganNama').value = t.pembeli || 'Umum'; document.getElementById('labelEditTransPelanggan').innerHTML = `<b>${t.pembeli || 'Umum'}</b>`; document.getElementById('editTransProduk').value = t.namaProduk; document.getElementById('editTransModal').value = formatRupiah(t.modal); document.getElementById('editTransTotal').value = formatRupiah(t.total); document.getElementById('editTransStatus').value = t.status; document.getElementById('modal-edit-transaksi').classList.add('active'); }
+    function bukaEditTransaksi(id) { let t = db.transaksi.find(x => String(x.id) === String(id)); if(!t) return; tempStatusLama = t.status; document.getElementById('editTransId').value = t.id; document.getElementById('editTransTgl').value = t.tanggal; document.getElementById('editTransPelangganNama').value = t.pembeli || 'Umum'; document.getElementById('labelEditTransPelanggan').innerHTML = `<b>${t.pembeli || 'Umum'}</b>`; document.getElementById('editTransProduk').value = t.namaProduk; document.getElementById('editTransModal').value = formatRupiah(t.modal); document.getElementById('editTransTotal').value = formatRupiah(t.total); document.getElementById('editTransStatus').value = t.status; if(t.dompetModal) document.getElementById('editTransDompetModal').value = t.dompetModal; if(t.dompetMasuk) document.getElementById('editTransDompetMasuk').value = t.dompetMasuk; document.getElementById('modal-edit-transaksi').classList.add('active'); }
     function tutupEditTransaksi() { document.getElementById('modal-edit-transaksi').classList.remove('active'); }
 
     function renderDaftarTransaksiBeranda() {
@@ -2211,7 +2219,16 @@
     }
 
     function updateSemuaTampilan() {
-        let sal = db.dompet.reduce((s, d) => s + parseInt(d.saldo||0), 0); 
+        let sal = db.dompet.filter(d => d.kategori !== 'Pribadi').reduce((s, d) => s + parseInt(d.saldo||0), 0); 
+        let salPribadi = db.dompet.filter(d => d.kategori === 'Pribadi').reduce((s, d) => s + parseInt(d.saldo||0), 0);
+        
+        let elBadgePribadi = document.getElementById('badge-dompet-pribadi');
+        if(salPribadi > 0 || db.dompet.some(d => d.kategori === 'Pribadi')) {
+            elBadgePribadi.style.display = 'block';
+            document.getElementById('displaySaldoPribadi').innerText = formatRupiah(salPribadi);
+        } else {
+            elBadgePribadi.style.display = 'none';
+        } 
         let totalPiutang = db.utang.filter(u => u.jenis === 'Piutang' && u.status !== 'Lunas').reduce((s, u) => s + ((Number(u.nominal)||0) - (Array.isArray(u.cicilan) ? u.cicilan.reduce((a,c) => a+(Number(c.nominal)||0), 0) : 0)), 0);
         let totalUtang = db.utang.filter(u => u.jenis === 'Utang' && u.status !== 'Lunas').reduce((s, u) => s + ((Number(u.nominal)||0) - (Array.isArray(u.cicilan) ? u.cicilan.reduce((a,c) => a+(Number(c.nominal)||0), 0) : 0)), 0);
         
@@ -2341,13 +2358,13 @@
         }
 
         grafikBisnis = new Chart(ctx, {
-            type: 'line',
+            type: 'bar',
             data: {
                 labels: tglLabels,
                 datasets: [
-                    { label: '💰 Omset', data: dataOmset, borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', tension: 0.3, fill: true, borderWidth: 2 },
-                    { label: '💸 Pengeluaran', data: dataPengeluaran, borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,0.1)', tension: 0.3, fill: true, borderWidth: 2 },
-                    { label: '✨ Hasil Bersih', data: dataBersih, borderColor: '#28a745', backgroundColor: 'rgba(40,167,69,0.1)', tension: 0.3, fill: true, borderWidth: 3 }
+                    { label: '💰 Omset', data: dataOmset, backgroundColor: '#007bff', borderRadius: 4 },
+                    { label: '💸 Pengeluaran', data: dataPengeluaran, backgroundColor: '#dc3545', borderRadius: 4 },
+                    { label: '✨ Hasil Bersih', data: dataBersih, backgroundColor: '#28a745', borderRadius: 4 }
                 ]
             },
             options: {
@@ -2385,13 +2402,15 @@
         // 1. Ambil dari Transaksi Jualan
         db.transaksi.forEach(t => {
             if (t.tanggal >= tglMulai && t.tanggal <= tglAkhir) {
-                if (t.modal > 0) {
+                if (t.modal > 0 && t.status === 'Lunas') {
+                    aliranDana.push({ tgl: t.tanggal, ket: t.namaProduk, tipe: 'GROUP', masuk: t.total, keluar: t.modal });
+                    totalIn += t.total; totalOut += t.modal;
+                } else if (t.status === 'Lunas') {
+                    aliranDana.push({ tgl: t.tanggal, ket: "Jualan: " + t.namaProduk, tipe: 'IN', nominal: t.total });
+                    totalIn += t.total;
+                } else if (t.modal > 0) {
                     aliranDana.push({ tgl: t.tanggal, ket: "Beli Modal: " + t.namaProduk, tipe: 'OUT', nominal: t.modal });
                     totalOut += t.modal;
-                }
-                if (t.status === 'Lunas') {
-                    aliranDana.push({ tgl: t.tanggal, ket: "Jualan Lunas: " + t.namaProduk, tipe: 'IN', nominal: t.total });
-                    totalIn += t.total;
                 }
             }
         });
@@ -2427,19 +2446,38 @@
         document.getElementById('totalMutasiKeluar').innerText = formatRupiah(totalOut);
 
         // Render List HTML
-        document.getElementById('listMutasiSaldo').innerHTML = aliranDana.map(d => `
-            <div class="list-item" style="border-left: 4px solid ${d.tipe === 'IN' ? '#28a745' : '#dc3545'}; background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <div class="flex-between">
-                    <div>
+        document.getElementById('listMutasiSaldo').innerHTML = aliranDana.map(d => {
+            if(d.tipe === 'GROUP') {
+                return `
+                <div class="list-item" style="border-left: 4px solid #333; background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="margin-bottom: 8px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
                         <span class="text-small">📅 ${formatTanggalIndo(d.tgl)}</span><br>
-                        <b>${d.ket}</b>
+                        <b>🛒 ${d.ket}</b>
                     </div>
-                    <div style="text-align: right;">
-                        <b class="${d.tipe === 'IN' ? 'text-green' : 'text-red'}">${d.tipe === 'IN' ? '+' : '-'} Rp ${formatRupiah(d.nominal)}</b>
+                    <div class="flex-between" style="margin-bottom: 3px;">
+                        <span class="text-small">Uang Masuk</span>
+                        <b class="text-green">+ Rp ${formatRupiah(d.masuk)}</b>
                     </div>
-                </div>
-            </div>
-        `).join('') || '<div class="text-center text-small" style="padding: 20px;">Tidak ada pergerakan uang di tanggal tersebut.</div>';
+                    <div class="flex-between">
+                        <span class="text-small">Modal Keluar</span>
+                        <b class="text-red">- Rp ${formatRupiah(d.keluar)}</b>
+                    </div>
+                </div>`;
+            } else {
+                return `
+                <div class="list-item" style="border-left: 4px solid ${d.tipe === 'IN' ? '#28a745' : '#dc3545'}; background: white; padding: 10px; margin-bottom: 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div class="flex-between">
+                        <div>
+                            <span class="text-small">📅 ${formatTanggalIndo(d.tgl)}</span><br>
+                            <b>${d.ket}</b>
+                        </div>
+                        <div style="text-align: right;">
+                            <b class="${d.tipe === 'IN' ? 'text-green' : 'text-red'}">${d.tipe === 'IN' ? '+' : '-'} Rp ${formatRupiah(d.nominal)}</b>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        }).join('') || '<div class="text-center text-small" style="padding: 20px;">Tidak ada pergerakan uang di tanggal tersebut.</div>';
     }
 // ==========================================
     // MESIN EDIT INFO KASBON & REFUND DOMPET
