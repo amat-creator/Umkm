@@ -448,6 +448,7 @@
             <div class="flex-between" style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #eee;">
                 <label style="display: flex; align-items: center; font-size: 13px; font-weight: bold; cursor: pointer;"><input type="checkbox" id="checkSemuaProduk" onchange="togglePilihSemuaProduk()" style="width: auto; margin: 0 10px 0 0;"> Pilih Semua</label>
                 <div style="display:flex; gap:5px;">
+                    <button type="button" class="btn-warning" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px; border:none;" onclick="eksekusiSapuMagnet()">🧲 Sapu</button>
                     <button type="button" class="btn-outline" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px; background:white;" onclick="bukaModalPindahKategori()">🗂️ Pindah</button>
                     <button type="button" class="btn-red" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;" onclick="hapusProdukTerpilih()">🗑 Hapus</button>
                 </div>
@@ -1551,6 +1552,39 @@
         document.querySelectorAll('.check-produk').forEach(cb => cb.checked = false);
         if(document.getElementById('checkSemuaProduk')) document.getElementById('checkSemuaProduk').checked = false;
         simpanData(); tutupModalPindahKategori(); alert(`${arr.length} produk berhasil dipindahkan!`);
+    }
+
+    function eksekusiSapuMagnet() {
+        let kata = prompt("🧲 SAPU MAGNET\n\nMasukkan kata kunci untuk disapu dari folder Umum.\n(contoh: dana, pulsa, token):");
+        if(!kata || kata.trim() === "") return;
+        kata = kata.trim().toLowerCase();
+        
+        let targetProduk = db.produk.filter(p => p.kategoriId === 'umum' && p.nama.toLowerCase().includes(kata));
+        
+        if(targetProduk.length === 0) {
+            alert(`Sapu meleset! Tidak ada produk di folder "Umum" yang namanya mengandung kata "${kata}".`);
+            return;
+        }
+        
+        let namaFolderBaru = "Grup: " + kata.charAt(0).toUpperCase() + kata.slice(1);
+        if(confirm(`🔎 Ditemukan ${targetProduk.length} produk dengan kata "${kata}" di folder Umum.\n\nApakah kamu mau membuat folder bernama "${namaFolderBaru}" dan memindahkan semua produk itu ke sana?`)) {
+            
+            let folderAda = db.kategoriProduk.find(k => k.nama.toLowerCase() === namaFolderBaru.toLowerCase());
+            let katIdBaru = folderAda ? folderAda.id : 'kat_' + Date.now();
+            
+            if(!folderAda) {
+                db.kategoriProduk.push({ id: katIdBaru, nama: namaFolderBaru });
+            }
+            
+            targetProduk.forEach(tp => {
+                let pIndex = db.produk.findIndex(p => p.id === tp.id);
+                if(pIndex > -1) db.produk[pIndex].kategoriId = katIdBaru;
+            });
+            
+            simpanData();
+            renderKategoriSelect();
+            alert(`✅ Mantap Bos! ${targetProduk.length} produk berhasil disapu bersih ke folder "${namaFolderBaru}".`);
+        }
     }
 
     function hitungPortalDompet() { 
