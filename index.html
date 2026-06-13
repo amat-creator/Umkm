@@ -1266,22 +1266,22 @@
             let tD = (Array.isArray(u.cicilan) ? u.cicilan : []).reduce((a,c) => a + (Number(c.nominal) || 0), 0);
             let sU = (Number(u.nominal) || 0) - tD;
             
-            let hc = u.cicilan&&u.cicilan.length ? u.cicilan.map((c, idx) => `
+            let hc = u.cicilan&&u.cicilan.length ? u.cicilan.map((c, idx) => ({c, idx})).reverse().map(item => `
                 <div class="cicilan-item flex-between" style="border-bottom:1px dashed #eee; padding-bottom:3px; margin-bottom:3px;">
-                    <span>${formatTanggalIndo(c.tanggal)}</span>
+                    <span>${formatTanggalIndo(item.c.tanggal)}</span>
                     <div style="display:flex; align-items:center;">
-                        <span class="text-green">+ Rp ${formatRupiah(c.nominal)}</span>
-                        <button type="button" class="btn-outline" style="padding:2px 6px; font-size:10px; width:auto; margin:0 0 0 5px;" onclick="bukaEditCicilan('${u.id}', ${idx})">✏️</button>
-                        <button type="button" class="btn-red" style="padding:2px 6px; font-size:10px; width:auto; margin:0 0 0 2px;" onclick="hapusCicilan('${u.id}', ${idx})">❌</button>
+                        <span class="text-green">+ Rp ${formatRupiah(item.c.nominal)}</span>
+                        <button type="button" class="btn-outline" style="padding:2px 6px; font-size:10px; width:auto; margin:0 0 0 5px;" onclick="bukaEditCicilan('${u.id}', ${item.idx})">✏️</button>
+                        <button type="button" class="btn-red" style="padding:2px 6px; font-size:10px; width:auto; margin:0 0 0 2px;" onclick="hapusCicilan('${u.id}', ${item.idx})">❌</button>
                     </div>
                 </div>`).join('') : '<div class="text-small" style="color:#aaa;">Belum ada cicilan.</div>';
                 
-            let hr = u.rincianBarang&&u.rincianBarang.length ? u.rincianBarang.map((r, idx) => `
+            let hr = u.rincianBarang&&u.rincianBarang.length ? u.rincianBarang.map((r, idx) => ({r, idx})).reverse().map(item => `
                 <div style="font-size:11px; padding:5px 0; border-bottom:1px dashed #ddd; display:flex; justify-content:space-between; align-items:center;">
-                    <div>📅 <b>${formatTanggalIndo(r.tanggal)}</b>: ${r.produk} <span class="text-blue">(Rp ${formatRupiah(r.nominal)})</span></div>
+                    <div>📅 <b>${formatTanggalIndo(item.r.tanggal)}</b>: ${item.r.produk} <span class="text-blue">(Rp ${formatRupiah(item.r.nominal)})</span></div>
                     <div style="display:flex; gap:3px;">
-                        <button type="button" class="btn-outline" style="padding:2px 6px; font-size:10px; width:auto; margin:0;" onclick="bukaEditRincian('${u.id}', ${idx})">✏️</button>
-                        <button type="button" class="btn-red" style="padding:2px 6px; font-size:10px; width:auto; margin:0;" onclick="hapusRincian('${u.id}', ${idx})">❌</button>
+                        <button type="button" class="btn-outline" style="padding:2px 6px; font-size:10px; width:auto; margin:0;" onclick="bukaEditRincian('${u.id}', ${item.idx})">✏️</button>
+                        <button type="button" class="btn-red" style="padding:2px 6px; font-size:10px; width:auto; margin:0;" onclick="hapusRincian('${u.id}', ${item.idx})">❌</button>
                     </div>
                 </div>`).join('') : `<div class="text-small">${u.namaProduk}</div>`;
             
@@ -1388,8 +1388,42 @@
     }
     
     function hapusUtang(id) { 
-        if(confirm("Hapus seluruh catatan kasbon ini?")) { 
-            db.utang = db.utang.filter(u => String(u.id) !== String(id)); simpanData(); 
+        if(confirm("Hapus catatan kasbon ini? Tenang, Modal akan di-REFUND (dikembalikan) ke dompet asal secara otomatis!")) { 
+            let u = db.utang.find(x => String(x.id) === String(id));
+            if(!u) return;
+
+            // Refund Kasbon Manual
+            if(u.dompetId && u.dompetId !== 'none' && (!u.rincianBarang || !u.rincianBarang.some(r => r.transId))) {
+                let d = db.dompet.find(x => String(x.id) === String(u.dompetId));
+                if(d) {
+                    let dibayar = (Array.isArray(u.cicilan) ? u.cicilan : []).reduce((a,c) => a + (Number(c.nominal) || 0), 0);
+                    let sisa = (Number(u.nominal) || 0) - dibayar;
+                    if(u.jenis === 'Piutang') d.saldo += sisa;
+                    else if(u.jenis === 'Utang') d.saldo -= sisa;
+                }
+            }
+            
+            // Refund Kasbon yang berasal dari Kasir (Ada transId)
+            if(u.rincianBarang) {
+                u.rincianBarang.forEach(r => {
+                    if(r.transId) {
+                        let t = db.transaksi.find(tx => String(tx.id) === String(r.transId));
+                        if(t) {
+                            // Refund Modal ke Dompet Modal
+                            if(t.dompetModal && t.dompetModal !== 'none') {
+                                let dm = db.dompet.find(x => String(x.id) === String(t.dompetModal));
+                                if(dm) dm.saldo += t.modal;
+                            }
+                            // Hapus transaksi aslinya dari Riwayat
+                            db.transaksi = db.transaksi.filter(tx => String(tx.id) !== String(r.transId));
+                        }
+                    }
+                });
+            }
+
+            db.utang = db.utang.filter(x => String(x.id) !== String(id)); 
+            simpanData(); 
+            alert("✅ Berhasil Dihapus & Di-Refund!");
         } 
     }
 
