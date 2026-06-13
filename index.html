@@ -119,7 +119,7 @@
         <div style="position: absolute; right: 20px; top: 20px; cursor: pointer; font-size: 24px; z-index: 10;" onclick="document.getElementById('modal-sawer').classList.add('active')">☕</div>
         <h2 id="judulHalaman">Kasir</h2>
         <div class="saldo-badge" id="badge-header-saldo" style="margin-bottom: 5px;">Total Saldo Sistem: Rp <span id="displaySaldo">0</span></div>
-<div id="badge-dompet-pribadi" style="display:none; background: rgba(0,0,0,0.15); padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; width: fit-content; margin: 0 auto; color: white;">💼 Dompet Pribadi: Rp <span id="displaySaldoPribadi">0</span></div>
+        <div id="badge-dompet-pribadi" style="display:none; background: rgba(0,0,0,0.15); padding: 4px 12px; border-radius: 15px; font-size: 11px; font-weight: bold; width: fit-content; margin: 0 auto; color: white;">💼 Dompet Pribadi: Rp <span id="displaySaldoPribadi">0</span></div>
     </div>
 
     <div id="modal-sawer" class="modal-popup">
@@ -340,7 +340,9 @@
                     <div><label class="text-small">Harga Modal:</label><input type="text" inputmode="numeric" id="kasirHargaModal" placeholder="Rp 0" oninput="formatInputRupiah(event)" required></div>
                     <div><label class="text-small">Harga Jual:</label><input type="text" inputmode="numeric" id="kasirHargaJual" placeholder="Rp 0" oninput="formatInputRupiah(event)" required></div>
                 </div>
-                <label class="text-small">Jumlah Barang (Qty):</label><input type="number" inputmode="numeric" id="kasirJumlah" placeholder="Jumlah" value="1" required>
+                <label style="display:flex; align-items:center; font-size:11px; margin-bottom: 15px; background: #e8f5e9; padding: 6px 10px; border-radius: 6px; border: 1px solid #c8e6c9; cursor: pointer;">
+                    <input type="checkbox" id="kasirGabungQty" checked style="width:auto; margin:0 8px 0 0;"><b style="color: #28a745;">Jadikan 1 baris riwayat (Hapus centang untuk pisah 1 per 1)</b>
+                </label>
                 <label class="text-small">Pelanggan:</label>
                 <div class="search-select" onclick="bukaPencarian('pelanggan-kasir')" style="margin-bottom: 15px;"><span id="labelKasirPelanggan"><b>Umum / Pelanggan Baru</b></span></div>
                 <input type="hidden" id="kasirPelangganId" value="">
@@ -710,7 +712,7 @@
             <h4>Buat Dompet Baru</h4>
             <form onsubmit="eksekusiTambahDompet(event)" style="margin-top: 10px;">
                 <input type="text" id="namaDompetBaru" placeholder="Nama Dompet (Misal: Laci Kasir)" required>
-                <select id="kategoriDompetBaru"><option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option><option value="Bank Digital">Kategori: Bank / Saldo Digital</option><option value="Pribadi">Kategori: Dompet Diri Sendiri (Pribadi)</option></select>
+                <select id="kategoriDompetBaru"><option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option><option value="Bank Digital">Kategori: Bank / Saldo Digital</option></select>
                 <input type="text" inputmode="numeric" id="saldoAwalDompet" placeholder="Saldo Awal Tercatat (Rp)" oninput="formatInputRupiah(event)" required>
                 <button type="submit" class="btn-green">➕ Tambah Dompet</button>
             </form>
@@ -908,7 +910,7 @@
     let db = { 
         dompet: [], produk: [], pelanggan: [], transaksi: [], utang: [], alokasi: [], 
         kategoriProduk: [], pengeluaran: [], simulasi: { piutang: false, utang: false, terapkanKeHeader: false }, 
-        templateWA: null, tema: '#007bff' 
+        templateWA: null, tema: '#007bff', filterRiwayat: 'semua', filterAlokasi: 'bulanIni', filterRiwayatCustom: {mulai: '', akhir: ''}
     };
     
     let filterSaatIni = 'semua';
@@ -960,7 +962,10 @@
         filterSaatIni = db.filterRiwayat;
         document.getElementById('filterWaktuBeranda').value = db.filterRiwayat;
         document.getElementById('periodeAlokasi').value = db.filterAlokasi;
-        if(db.filterRiwayat === 'custom') document.getElementById('wadahFilterCustom').style.display = 'block';
+        if(db.filterRiwayat === 'custom') { 
+            document.getElementById('wadahFilterCustom').style.display = 'block'; 
+            if(db.filterRiwayatCustom) { document.getElementById('tglMulaiCustom').value = db.filterRiwayatCustom.mulai; document.getElementById('tglAkhirCustom').value = db.filterRiwayatCustom.akhir; }
+        }
         if(db.filterAlokasi === 'custom') document.getElementById('wadahFilterCustomAlokasi').style.display = 'block';
         
         simpanData();
@@ -1154,14 +1159,19 @@
             let elStatus = document.getElementById('kasirStatusVal') || document.getElementById('kasirStatus');
             let stat = elStatus ? elStatus.value : 'Lunas';
             
-            let tr = { id: Date.now(), tanggal: tgl, namaProduk: nmProd, jumlah: qty, modal: m*qty, total: j*qty, untung: (j-m)*qty, status: stat, pembeli: nmPel, dompetModal: dModalId, dompetMasuk: dMasukId };
+            let gabung = document.getElementById('kasirGabungQty') ? document.getElementById('kasirGabungQty').checked : true;
+            let loopCount = gabung ? 1 : qty;
+            let qPerItem = gabung ? qty : 1;
             
-            db.transaksi.push(tr); 
-            if(stat !== 'Lunas') tambahUtangOtomatis(tr); 
-            
-            // EKSEKUSI DOMPET
-            if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= (m * qty); }
-            if(stat === 'Lunas' && dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += (j * qty); }
+            for(let i=0; i<loopCount; i++) {
+                let tr = { id: Date.now() + i, tanggal: tgl, namaProduk: nmProd, jumlah: qPerItem, modal: m*qPerItem, total: j*qPerItem, untung: (j-m)*qPerItem, status: stat, pembeli: nmPel, dompetModal: dModalId, dompetMasuk: dMasukId };
+                db.transaksi.push(tr); 
+                if(stat !== 'Lunas') tambahUtangOtomatis(tr); 
+                
+                // EKSEKUSI DOMPET
+                if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= (m * qPerItem); }
+                if(stat === 'Lunas' && dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += (j * qPerItem); }
+            }
 
             // --- MESIN POTONG DEPOSIT OTOMATIS ---
             let pakaiDeposit = document.getElementById('kasirPakaiDeposit') ? document.getElementById('kasirPakaiDeposit').checked : false;
@@ -1923,7 +1933,12 @@
     }
 
     function ubahFilterBeranda() { filterSaatIni = document.getElementById('filterWaktuBeranda').value; db.filterRiwayat = filterSaatIni; simpanData(); document.getElementById('wadahFilterCustom').style.display = filterSaatIni === 'custom' ? 'block' : 'none'; document.getElementById('checkSemuaTransaksi').checked = false; renderDaftarTransaksiBeranda(); }
-    function terapkanFilterCustom() { document.getElementById('checkSemuaTransaksi').checked = false; renderDaftarTransaksiBeranda(); }
+    function terapkanFilterCustom() { 
+    db.filterRiwayatCustom = { mulai: document.getElementById('tglMulaiCustom').value, akhir: document.getElementById('tglAkhirCustom').value };
+    simpanData();
+    document.getElementById('checkSemuaTransaksi').checked = false; 
+    renderDaftarTransaksiBeranda(); 
+}
     function togglePilihSemuaTransaksi() { let chk = document.getElementById('checkSemuaTransaksi').checked; document.querySelectorAll('.check-transaksi-beranda').forEach(cb => cb.checked = chk); }
     function togglePilihSemuaTransaksiRiwayat() { let chk = document.getElementById('checkSemuaTransaksiRiwayat').checked; document.querySelectorAll('.check-transaksi-riwayat').forEach(cb => cb.checked = chk); }
     function hapusTransaksiTerpilih() { let arr = Array.from(document.querySelectorAll('.check-transaksi-beranda:checked')).map(cb => String(cb.value)); if(arr.length===0) return alert("Centang barisnya!"); if(confirm(`Hapus ${arr.length} baris?`)) { arr.forEach(id => hapusDariUtangOtomatis(id)); db.transaksi = db.transaksi.filter(t => !arr.includes(String(t.id))); document.getElementById('checkSemuaTransaksi').checked=false; simpanData(); } }
@@ -2164,7 +2179,7 @@
             hitungBagiHasil(); 
         } 
     }
-    function toggleFilterAlokasi() { document.getElementById('wadahFilterCustomAlokasi').style.display = (document.getElementById('periodeAlokasi').value === 'custom') ? 'block' : 'none'; updateLabaAlokasi(); }
+    function toggleFilterAlokasi() { db.filterAlokasi = document.getElementById('periodeAlokasi').value; simpanData(); document.getElementById('wadahFilterCustomAlokasi').style.display = (db.filterAlokasi === 'custom') ? 'block' : 'none'; updateLabaAlokasi(); }
     function updateLabaAlokasi() {
         let p = document.getElementById('periodeAlokasi').value;
         let kU = document.getElementById('cbKurangiUtang').checked;
@@ -2223,11 +2238,13 @@
         let salPribadi = db.dompet.filter(d => d.kategori === 'Pribadi').reduce((s, d) => s + parseInt(d.saldo||0), 0);
         
         let elBadgePribadi = document.getElementById('badge-dompet-pribadi');
-        if(salPribadi > 0 || db.dompet.some(d => d.kategori === 'Pribadi')) {
-            elBadgePribadi.style.display = 'block';
-            document.getElementById('displaySaldoPribadi').innerText = formatRupiah(salPribadi);
-        } else {
-            elBadgePribadi.style.display = 'none';
+        if(elBadgePribadi) {
+            if(salPribadi > 0 || db.dompet.some(d => d.kategori === 'Pribadi')) {
+                elBadgePribadi.style.display = 'block';
+                document.getElementById('displaySaldoPribadi').innerText = formatRupiah(salPribadi);
+            } else {
+                elBadgePribadi.style.display = 'none';
+            }
         } 
         let totalPiutang = db.utang.filter(u => u.jenis === 'Piutang' && u.status !== 'Lunas').reduce((s, u) => s + ((Number(u.nominal)||0) - (Array.isArray(u.cicilan) ? u.cicilan.reduce((a,c) => a+(Number(c.nominal)||0), 0) : 0)), 0);
         let totalUtang = db.utang.filter(u => u.jenis === 'Utang' && u.status !== 'Lunas').reduce((s, u) => s + ((Number(u.nominal)||0) - (Array.isArray(u.cicilan) ? u.cicilan.reduce((a,c) => a+(Number(c.nominal)||0), 0) : 0)), 0);
@@ -2272,19 +2289,23 @@
         let opsiDompet = db.dompet.map(d => `<option value="${d.id}">${d.nama} (Rp ${formatRupiah(d.saldo)})</option>`).join('');
         let opsiDompetUtang = `<option value="none">-- Tanpa Dompet / Lewati --</option>` + opsiDompet;
         
-        if(document.getElementById('mutasiDari')) document.getElementById('mutasiDari').innerHTML = opsiDompet;
-        if(document.getElementById('mutasiKe')) document.getElementById('mutasiKe').innerHTML = opsiDompet;
-        if(document.getElementById('utangDompetId')) document.getElementById('utangDompetId').innerHTML = opsiDompetUtang;
-        if(document.getElementById('editKasbonDompet')) document.getElementById('editKasbonDompet').innerHTML = opsiDompetUtang;
-        if(document.getElementById('pengeluaranDompetId')) document.getElementById('pengeluaranDompetId').innerHTML = opsiDompetUtang;
+        let simpanPilihan = (id) => document.getElementById(id) ? document.getElementById(id).value : null;
+        let pMutasiDari = simpanPilihan('mutasiDari'), pMutasiKe = simpanPilihan('mutasiKe'), pUtang = simpanPilihan('utangDompetId'), pEditKasbon = simpanPilihan('editKasbonDompet'), pPengeluaran = simpanPilihan('pengeluaranDompetId');
+        let pKasirModal = simpanPilihan('kasirDompetModal'), pKasirMasuk = simpanPilihan('kasirDompetMasuk'), pProdModal = simpanPilihan('produkDompetModal'), pProdMasuk = simpanPilihan('produkDompetMasuk');
+
+        if(document.getElementById('mutasiDari')) { document.getElementById('mutasiDari').innerHTML = opsiDompet; if(pMutasiDari) document.getElementById('mutasiDari').value = pMutasiDari; }
+        if(document.getElementById('mutasiKe')) { document.getElementById('mutasiKe').innerHTML = opsiDompet; if(pMutasiKe) document.getElementById('mutasiKe').value = pMutasiKe; }
+        if(document.getElementById('utangDompetId')) { document.getElementById('utangDompetId').innerHTML = opsiDompetUtang; if(pUtang) document.getElementById('utangDompetId').value = pUtang; }
+        if(document.getElementById('editKasbonDompet')) { document.getElementById('editKasbonDompet').innerHTML = opsiDompetUtang; if(pEditKasbon) document.getElementById('editKasbonDompet').value = pEditKasbon; }
+        if(document.getElementById('pengeluaranDompetId')) { document.getElementById('pengeluaranDompetId').innerHTML = opsiDompetUtang; if(pPengeluaran) document.getElementById('pengeluaranDompetId').value = pPengeluaran; }
         
-        if(document.getElementById('kasirDompetModal')) document.getElementById('kasirDompetModal').innerHTML = opsiDompetUtang;
-        if(document.getElementById('kasirDompetMasuk')) document.getElementById('kasirDompetMasuk').innerHTML = opsiDompetUtang;
+        if(document.getElementById('kasirDompetModal')) { document.getElementById('kasirDompetModal').innerHTML = opsiDompetUtang; if(pKasirModal) document.getElementById('kasirDompetModal').value = pKasirModal; }
+        if(document.getElementById('kasirDompetMasuk')) { document.getElementById('kasirDompetMasuk').innerHTML = opsiDompetUtang; if(pKasirMasuk) document.getElementById('kasirDompetMasuk').value = pKasirMasuk; }
         if(document.getElementById('editTransDompetModal')) document.getElementById('editTransDompetModal').innerHTML = opsiDompetUtang;
         if(document.getElementById('editTransDompetMasuk')) document.getElementById('editTransDompetMasuk').innerHTML = opsiDompetUtang;
         if(document.getElementById('cicilanDompetMasuk')) document.getElementById('cicilanDompetMasuk').innerHTML = opsiDompetUtang;
-        if(document.getElementById('produkDompetModal')) document.getElementById('produkDompetModal').innerHTML = opsiDompetUtang;
-        if(document.getElementById('produkDompetMasuk')) document.getElementById('produkDompetMasuk').innerHTML = opsiDompetUtang;
+        if(document.getElementById('produkDompetModal')) { document.getElementById('produkDompetModal').innerHTML = opsiDompetUtang; if(pProdModal) document.getElementById('produkDompetModal').value = pProdModal; }
+        if(document.getElementById('produkDompetMasuk')) { document.getElementById('produkDompetMasuk').innerHTML = opsiDompetUtang; if(pProdMasuk) document.getElementById('produkDompetMasuk').value = pProdMasuk; }
         
         try { renderDaftarTransaksiBeranda(); } catch(e) {}
         
@@ -2670,7 +2691,8 @@
             // --- SARINGAN GAIB ---
             // Hanya masukkan ke rekap jika ada transaksi ATAU ada utang aktif
             if (jmlTrans > 0 || adaUtang) {
-                rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung, adaUtang: adaUtang });
+                let listTransDetail = db.transaksi.filter(t => t.pembeli === namaPlg).slice().reverse();
+                rekap.push({ nama: namaPlg, qty: jmlTrans, modal: totModal, jual: totJual, untung: totUntung, adaUtang: adaUtang, rincian: listTransDetail });
             }
         });
 
@@ -2697,14 +2719,26 @@
             let styleBg = r.qty === 0 ? "background: #fffafa; border-color:#ffcdd2;" : "background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-color:var(--primary);";
             let teksUtang = (r.adaUtang && r.qty === 0) ? `<span style="font-size:10px; color:#dc3545; font-weight:bold;">⚠️ Punya Kasbon</span>` : '';
 
+            let rincianHtml = r.rincian && r.rincian.length > 0 ? r.rincian.map(rt => `
+                <div style="display:flex; justify-content:space-between; font-size:11px; padding:5px 0; border-bottom:1px dashed #eee;">
+                    <div>📅 ${formatTanggalIndo(rt.tanggal)}<br><b>${rt.namaProduk}</b> (x${rt.jumlah})</div>
+                    <div style="text-align:right;"><span class="${rt.status==='Lunas'?'text-green':'text-red'}">${rt.status}</span><br><b>Rp ${formatRupiah(rt.total)}</b></div>
+                </div>
+            `).join('') : '<div class="text-small" style="padding:5px;">Tidak ada histori transaksi.</div>';
+
             return `
             <div class="list-item" style="border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; ${styleBg}">
-                <div class="flex-between" style="border-bottom:1px dashed #ccc; padding-bottom:8px; margin-bottom:8px;">
+                <div class="flex-between" style="border-bottom:1px dashed #ccc; padding-bottom:8px; margin-bottom:8px; cursor:pointer;" onclick="document.getElementById('histori-rapor-${index}').classList.toggle('active')">
                     <div>
                         <b style="font-size:15px; color: ${r.qty > 0 ? 'var(--primary)' : '#555'};">${icon} ${r.nama}</b><br>
                         ${teksUtang}
                     </div>
-                    <span class="badge-info" style="margin:0; background:${r.qty > 0 ? '#e8f4fd' : '#f8d7da'}; color:${r.qty > 0 ? '#333' : '#721c24'};">🛒 ${r.qty}x Transaksi</span>
+                    <div style="text-align:right;">
+                        <span class="badge-info" style="margin:0; background:${r.qty > 0 ? '#e8f4fd' : '#f8d7da'}; color:${r.qty > 0 ? '#333' : '#721c24'};">🛒 ${r.qty}x Transaksi ⬇️</span>
+                    </div>
+                </div>
+                <div id="histori-rapor-${index}" class="accordion-content" style="margin-bottom:10px; max-height:150px; overflow-y:auto;">
+                    ${rincianHtml}
                 </div>
                 <div class="grid-3" style="text-align:center; gap:5px;">
                     <div style="background:#ffebee; padding:5px; border-radius:5px;">
