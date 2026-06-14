@@ -714,7 +714,11 @@
             <h4>Buat Dompet Baru</h4>
             <form onsubmit="eksekusiTambahDompet(event)" style="margin-top: 10px;">
                 <input type="text" id="namaDompetBaru" placeholder="Nama Dompet (Misal: Laci Kasir)" required>
-                <select id="kategoriDompetBaru"><option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option><option value="Bank Digital">Kategori: Bank / Saldo Digital</option></select>
+                <select id="kategoriDompetBaru">
+    <option value="Kas Fisik">Kategori: Kas Fisik (Tunai)</option>
+    <option value="Bank Digital">Kategori: Bank / Saldo Digital</option>
+    <option value="Pribadi">💼 Kategori: Dompet Pribadi (Uang Jajan)</option>
+</select>
                 <input type="text" inputmode="numeric" id="saldoAwalDompet" placeholder="Saldo Awal Tercatat (Rp)" oninput="formatInputRupiah(event)" required>
                 <button type="submit" class="btn-green">➕ Tambah Dompet</button>
             </form>
@@ -1925,7 +1929,10 @@
         } else if (modePencarian.startsWith('pelanggan')) {
             let data = db.pelanggan.map((p, i) => ({...p, idAsli: p.id})).filter(p => { if(p.nama.toLowerCase().includes(kw)) return true; let foundInInfo = false; (p.info||[]).forEach(inf => { if(inf.label.toLowerCase().includes(kw) || inf.value.toLowerCase().includes(kw)) foundInInfo = true; }); return foundInInfo; });
             if("umum pelanggan baru".includes(kw) || kw === "") html += `<div class="search-item" onclick="pilihPelanggan('', 'Umum / Pelanggan Baru')"><b>Umum / Pelanggan Baru</b></div>`;
-            html += data.map(p => `<div class="search-item" onclick="pilihPelanggan('${p.idAsli}', '${p.nama}')"><b>${p.nama}</b></div>`).join('');
+            html += data.map(p => {
+                let namaAman = p.nama.replace(/\r/g, '').replace(/'/g, "\\'");
+                return `<div class="search-item" onclick="pilihPelanggan('${p.idAsli}', '${namaAman}')"><b>${p.nama.replace(/\r/g, '')}</b></div>`;
+            }).join('');
         }
         document.getElementById('listHasilPencarian').innerHTML = html;
     }
