@@ -151,6 +151,14 @@
         </div>
     </div>
 
+    <div id="modal-draf-kasir" class="modal-search" style="z-index: 3100;">
+        <div class="modal-header"><button type="button" class="btn-outline btn-back" onclick="tutupModalDraf()">⬅ Kembali</button><h4>Daftar Antrean (Draf)</h4></div>
+        <div class="modal-body">
+            <p class="text-small" style="margin-bottom:10px;">Pilih antrean yang ingin dilanjutkan ke kasir:</p>
+            <div id="listDrafKasir"></div>
+        </div>
+    </div>
+
     <div id="modal-edit-transaksi" class="modal-search">
         <div class="modal-header"><button type="button" class="btn-outline btn-back" onclick="tutupEditTransaksi()">⬅ Kembali</button><h4>Edit Transaksi</h4></div>
         <div class="modal-body">
@@ -1252,8 +1260,16 @@
     }
 
     function simpanDrafKasir() {
-        let draf = {
-            produk: document.getElementById('kasirNamaProduk').value,
+        let nmPel = document.getElementById('labelKasirPelanggan').innerText.trim() || 'Umum';
+        let nmProd = document.getElementById('kasirNamaProduk').value.trim();
+        if (!nmProd) return alert("Isi nama produk dulu sebelum menyimpan draf antrean!");
+
+        let namaDraf = prompt("Simpan draf ini dengan nama antrean apa?", nmPel + " - " + nmProd);
+        if (!namaDraf) return; // Batal simpan kalau pencet cancel
+
+        let drafBaru = {
+            namaAntrean: namaDraf,
+            produk: nmProd,
             modal: document.getElementById('kasirHargaModal').value,
             jual: document.getElementById('kasirHargaJual').value,
             qty: document.getElementById('kasirJumlah').value,
@@ -1261,14 +1277,47 @@
             pelangganId: document.getElementById('kasirPelangganId').value,
             pelangganNama: document.getElementById('labelKasirPelanggan').innerHTML
         };
-        localStorage.setItem('drafKasirUMKM', JSON.stringify(draf));
-        alert("📝 Ketikan kamu berhasil disimpan sebagai Draf!\nKamu bisa menutup aplikasi, lalu pencet tombol 'Muat Draf' nanti.");
+
+        let saved = localStorage.getItem('drafKasirUMKMBanyak');
+        let listDraf = saved ? JSON.parse(saved) : [];
+        listDraf.push(drafBaru);
+        localStorage.setItem('drafKasirUMKMBanyak', JSON.stringify(listDraf));
+
+        // Reset Kasir otomatis biar siap dipakai orang lain
+        document.getElementById('kasirNamaProduk').value = ''; document.getElementById('kasirHargaModal').value = ''; document.getElementById('kasirHargaJual').value = ''; document.getElementById('kasirJumlah').value = '1';
+        if(document.getElementById('kasirDiskon')) document.getElementById('kasirDiskon').value = '';
+        document.getElementById('kasirPelangganId').value = '';
+        document.getElementById('labelKasirPelanggan').innerHTML = '<b>Umum / Pelanggan Baru</b>';
+
+        alert("✅ Antrean '" + namaDraf + "' berhasil disimpan!\nLayar kasir sudah dibersihkan untuk pembeli selanjutnya.");
     }
 
     function muatDrafKasir() {
-        let saved = localStorage.getItem('drafKasirUMKM');
-        if(!saved) return alert("Kosong! Belum ada draf yang tersimpan.");
-        let draf = JSON.parse(saved);
+        let saved = localStorage.getItem('drafKasirUMKMBanyak');
+        let listDraf = saved ? JSON.parse(saved) : [];
+        if(listDraf.length === 0) return alert("Kosong! Belum ada draf antrean yang tersimpan.");
+
+        let html = listDraf.map((d, index) => `
+        <div class="search-item flex-between" style="border:1px solid #ddd; align-items:center;">
+            <div onclick="pilihDrafKasir(${index})" style="flex:1;">
+                <b style="color:var(--primary); font-size:15px;">👤 ${d.namaAntrean}</b><br>
+                <span class="text-small" style="color:#555;">📦 ${d.produk} (Qty: ${d.qty})</span>
+            </div>
+            <button type="button" class="btn-red" style="width:auto; padding:5px 10px; margin:0; border-radius:6px;" onclick="hapusDrafKasir(${index})">❌</button>
+        </div>`).join('');
+
+        document.getElementById('listDrafKasir').innerHTML = html;
+        document.getElementById('modal-draf-kasir').classList.add('active');
+    }
+
+    function tutupModalDraf() { document.getElementById('modal-draf-kasir').classList.remove('active'); }
+
+    function pilihDrafKasir(index) {
+        let saved = localStorage.getItem('drafKasirUMKMBanyak');
+        let listDraf = saved ? JSON.parse(saved) : [];
+        let draf = listDraf[index];
+        if(!draf) return;
+
         document.getElementById('kasirNamaProduk').value = draf.produk || '';
         document.getElementById('kasirHargaModal').value = draf.modal || '';
         document.getElementById('kasirHargaJual').value = draf.jual || '';
@@ -1276,7 +1325,25 @@
         if(document.getElementById('kasirDiskon')) document.getElementById('kasirDiskon').value = draf.diskon || '';
         document.getElementById('kasirPelangganId').value = draf.pelangganId || '';
         document.getElementById('labelKasirPelanggan').innerHTML = draf.pelangganNama || '<b>Umum / Pelanggan Baru</b>';
-        alert("📂 Draf berhasil dimuat kembali ke layar!");
+
+        // Hapus draf dari daftar pop-up supaya tidak numpuk/dobel
+        listDraf.splice(index, 1);
+        localStorage.setItem('drafKasirUMKMBanyak', JSON.stringify(listDraf));
+
+        tutupModalDraf();
+        
+        // Triger mesin Cek Deposit Pelanggan biar tetap nyala
+        let namaP = document.getElementById('labelKasirPelanggan').innerText.trim();
+        pilihPelanggan(draf.pelangganId || '', namaP);
+    }
+
+    function hapusDrafKasir(index) {
+        if(!confirm("Yakin ingin membuang draf antrean ini?")) return;
+        let saved = localStorage.getItem('drafKasirUMKMBanyak');
+        let listDraf = saved ? JSON.parse(saved) : [];
+        listDraf.splice(index, 1);
+        localStorage.setItem('drafKasirUMKMBanyak', JSON.stringify(listDraf));
+        muatDrafKasir(); // Render pop-up ulang
     }
 
     function eksekusiTambahUtang(e) {
@@ -2203,14 +2270,19 @@ function renderDaftarTransaksiBeranda() {
             let totalUntung = items.reduce((s, x) => s + (x.untung || 0), 0);
             let totalStruk = items.length;
 
-            // Baris Judul Tanggal + Rekap Harian (Digabung biar hemat ruang & sejajar)
-            htmlTabel += `<tr style="background:#eef2f5; font-size:11px; font-weight:bold; border-top:2px solid var(--primary);">
-                <td colspan="2" style="padding:8px 5px; color:var(--primary);">📅 ${formatTanggalIndo(tgl)}</td>
-                <td style="color:#555;">∑ ${totalQty} Brg</td>
-                <td class="text-right text-red">Rp ${formatRupiah(totalModal)}</td>
-                <td class="text-right text-blue">Rp ${formatRupiah(totalJual)}</td>
-                <td class="text-right text-green">Rp ${formatRupiah(totalUntung)}</td>
-                <td class="text-center" style="color:#888;">${totalStruk} trx</td>
+            // 1. SPASI PEMISAH (Ruang Napas) jika ganti tanggal
+            if (htmlTabel !== "") {
+                htmlTabel += `<tr style="background: transparent; height: 20px;"><td colspan="7" style="border: none;"></td></tr>`;
+            }
+
+            // 2. KOTAK BANNER ESTETIK (Tanggal & Rekap Digabung)
+            htmlTabel += `<tr style="background:#cce5ff; font-size:11px; font-weight:bold; border-top:2px solid var(--primary); border-bottom:2px solid var(--primary);">
+                <td colspan="2" style="padding:10px 8px; color:#004085;">📅 ${formatTanggalIndo(tgl)}</td>
+                <td style="padding:10px 8px; color:#0056b3;">∑ ${totalQty} Brg <span style="font-weight:normal; color:#555;">(${totalStruk} trx)</span></td>
+                <td class="text-right text-red" style="padding:10px 8px;">M: Rp ${formatRupiah(totalModal)}</td>
+                <td class="text-right text-blue" style="padding:10px 8px;">O: Rp ${formatRupiah(totalJual)}</td>
+                <td class="text-right text-green" style="padding:10px 8px;">U: Rp ${formatRupiah(totalUntung)}</td>
+                <td></td>
             </tr>`;
             
             items.forEach(t => {
