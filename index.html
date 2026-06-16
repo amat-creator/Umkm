@@ -2203,18 +2203,15 @@ function renderDaftarTransaksiBeranda() {
             let totalUntung = items.reduce((s, x) => s + (x.untung || 0), 0);
             let totalStruk = items.length;
 
-            // Baris Rekap Harian Pintar
-            htmlTabel += `<tr style="background:#e8f4fd; font-size:11px; font-weight:bold; border-top:3px solid var(--primary);">
-                <td colspan="2" class="text-blue" style="padding:8px 10px;">📊 REKAP HARIAN:</td>
-                <td style="color:#555;">Qty: ${totalQty} (${totalStruk} Struk)</td>
-                <td class="text-right text-red">M: Rp ${formatRupiah(totalModal)}</td>
-                <td class="text-right text-blue">O: Rp ${formatRupiah(totalJual)}</td>
-                <td class="text-right text-green">U: Rp ${formatRupiah(totalUntung)}</td>
-                <td></td>
+            // Baris Judul Tanggal + Rekap Harian (Digabung biar hemat ruang & sejajar)
+            htmlTabel += `<tr style="background:#eef2f5; font-size:11px; font-weight:bold; border-top:2px solid var(--primary);">
+                <td colspan="2" style="padding:8px 5px; color:var(--primary);">📅 ${formatTanggalIndo(tgl)}</td>
+                <td style="color:#555;">∑ ${totalQty} Brg</td>
+                <td class="text-right text-red">Rp ${formatRupiah(totalModal)}</td>
+                <td class="text-right text-blue">Rp ${formatRupiah(totalJual)}</td>
+                <td class="text-right text-green">Rp ${formatRupiah(totalUntung)}</td>
+                <td class="text-center" style="color:#888;">${totalStruk} trx</td>
             </tr>`;
-            
-            // Baris Judul Tanggal
-            htmlTabel += `<tr><td colspan="7" style="background:#eef2f5; font-weight:bold; text-align:center; padding:8px 5px; color:#333;">📅 ${formatTanggalIndo(tgl)}</td></tr>`;
             
             items.forEach(t => {
                 htmlTabel += renderItemTransaksi(t, 'beranda');
