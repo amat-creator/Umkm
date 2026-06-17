@@ -2236,9 +2236,23 @@
 }
     function togglePilihSemuaTransaksi() { let chk = document.getElementById('checkSemuaTransaksi').checked; document.querySelectorAll('.check-transaksi-beranda').forEach(cb => cb.checked = chk); }
     function togglePilihSemuaTransaksiRiwayat() { let chk = document.getElementById('checkSemuaTransaksiRiwayat').checked; document.querySelectorAll('.check-transaksi-riwayat').forEach(cb => cb.checked = chk); }
-    function hapusTransaksiTerpilih() { let arr = Array.from(document.querySelectorAll('.check-transaksi-beranda:checked')).map(cb => String(cb.value)); if(arr.length===0) return alert("Centang barisnya!"); if(confirm(`Hapus ${arr.length} baris?`)) { arr.forEach(id => hapusDariUtangOtomatis(id)); db.transaksi = db.transaksi.filter(t => !arr.includes(String(t.id))); document.getElementById('checkSemuaTransaksi').checked=false; simpanData(); } }
-    function hapusTransaksiTerpilihRiwayat() { let arr = Array.from(document.querySelectorAll('.check-transaksi-riwayat:checked')).map(cb => String(cb.value)); if(arr.length===0) return alert("Centang barisnya!"); if(confirm(`Hapus ${arr.length} baris?`)) { arr.forEach(id => hapusDariUtangOtomatis(id)); db.transaksi = db.transaksi.filter(t => !arr.includes(String(t.id))); document.getElementById('checkSemuaTransaksiRiwayat').checked=false; simpanData(); } }
-    function hapusTransaksi(id) { if(confirm("Yakin menghapus?")) { hapusDariUtangOtomatis(id); db.transaksi = db.transaksi.filter(t => String(t.id) !== String(id)); simpanData(); } }
+    // --- MESIN REFUND TRANSAKSI ---
+    function refundTransaksi(t) {
+        // Kembalikan modal ke laci/dompet modal
+        if(t.dompetModal && t.dompetModal !== 'none') { 
+            let dm = db.dompet.find(x => String(x.id) === String(t.dompetModal)); 
+            if(dm) dm.saldo += t.modal; 
+        }
+        // Tarik kembali uang dari laci/dompet masuk (Hanya jika statusnya lunas)
+        if(t.status === 'Lunas' && t.dompetMasuk && t.dompetMasuk !== 'none') { 
+            let dk = db.dompet.find(x => String(x.id) === String(t.dompetMasuk)); 
+            if(dk) dk.saldo -= t.total; 
+        }
+    }
+
+    function hapusTransaksiTerpilih() { let arr = Array.from(document.querySelectorAll('.check-transaksi-beranda:checked')).map(cb => String(cb.value)); if(arr.length===0) return alert("Centang barisnya!"); if(confirm(`Hapus ${arr.length} baris? Saldo dompet akan di-refund otomatis!`)) { arr.forEach(id => { hapusDariUtangOtomatis(id); let t = db.transaksi.find(x => String(x.id) === String(id)); if(t) refundTransaksi(t); }); db.transaksi = db.transaksi.filter(t => !arr.includes(String(t.id))); document.getElementById('checkSemuaTransaksi').checked=false; simpanData(); } }
+    function hapusTransaksiTerpilihRiwayat() { let arr = Array.from(document.querySelectorAll('.check-transaksi-riwayat:checked')).map(cb => String(cb.value)); if(arr.length===0) return alert("Centang barisnya!"); if(confirm(`Hapus ${arr.length} baris? Saldo dompet akan di-refund otomatis!`)) { arr.forEach(id => { hapusDariUtangOtomatis(id); let t = db.transaksi.find(x => String(x.id) === String(id)); if(t) refundTransaksi(t); }); db.transaksi = db.transaksi.filter(t => !arr.includes(String(t.id))); document.getElementById('checkSemuaTransaksiRiwayat').checked=false; simpanData(); } }
+    function hapusTransaksi(id) { if(confirm("Yakin menghapus transaksi ini? Saldo dompet akan dikembalikan (Refund) otomatis.")) { hapusDariUtangOtomatis(id); let t = db.transaksi.find(x => String(x.id) === String(id)); if(t) refundTransaksi(t); db.transaksi = db.transaksi.filter(t => String(t.id) !== String(id)); simpanData(); } }
 
     let tempStatusLama = "";
     function bukaEditTransaksi(id) { let t = db.transaksi.find(x => String(x.id) === String(id)); if(!t) return; tempStatusLama = t.status; document.getElementById('editTransId').value = t.id; document.getElementById('editTransTgl').value = t.tanggal; document.getElementById('editTransPelangganNama').value = t.pembeli || 'Umum'; document.getElementById('labelEditTransPelanggan').innerHTML = `<b>${t.pembeli || 'Umum'}</b>`; document.getElementById('editTransProduk').value = t.namaProduk; document.getElementById('editTransModal').value = formatRupiah(t.modal); document.getElementById('editTransTotal').value = formatRupiah(t.total); document.getElementById('editTransStatus').value = t.status; if(t.dompetModal) document.getElementById('editTransDompetModal').value = t.dompetModal; if(t.dompetMasuk) document.getElementById('editTransDompetMasuk').value = t.dompetMasuk; document.getElementById('modal-edit-transaksi').classList.add('active'); }
@@ -3166,4 +3180,4 @@ function renderDaftarTransaksiBeranda() {
     
 </script>
 </body>
-</html>
+</html>                
