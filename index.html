@@ -908,6 +908,12 @@
             <hr style="margin:20px 0; border:0; border-top:1px dashed #ccc;">
             <h4 style="margin-bottom:10px;">Buku Kontak Pelanggan</h4>
             <input type="text" id="cariPelangganInput" placeholder="🔍 Ketik nama, label (PLN/BCA), atau nomor..." oninput="renderDaftarPelanggan()" style="border-color: var(--primary); background:#f0f8ff;">
+            <div class="flex-between" style="background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; border: 1px solid #eee;">
+                <label style="display: flex; align-items: center; font-size: 13px; font-weight: bold; cursor: pointer;">
+                    <input type="checkbox" id="checkSemuaPelanggan" onchange="togglePilihSemuaPelanggan()" style="width: auto; margin: 0 10px 0 0;"> Pilih Semua
+                </label>
+                <button type="button" class="btn-red" style="width: auto; padding: 5px 10px; margin: 0; font-size: 12px;" onclick="hapusPelangganTerpilih()">🗑 Hapus Massal</button>
+            </div>
             <div id="listPelanggan"></div>
         </div>
 
