@@ -524,24 +524,23 @@
                 <input type="hidden" id="utangPelangganId" value="">
                 
                 <label class="text-small">Jenis Transaksi:</label>
-                <select id="jenisUtang"><option value="Piutang">Orang Ngutang ke Kita (Piutang)</option><option value="Utang">Kita Ngutang ke Orang (Utang)</option></select>
+                <select id="jenisUtang"><option value="Piutang">Pelanggan Ngasbon (Piutang)</option><option value="Utang">Pelanggan Nabung / Titip Uang</option></select>
                 
                 <label class="text-small text-blue">💼 Saldo Dompet Terkait:</label>
                 <select id="utangDompetId" style="background:#e8f4fd; border-color:var(--primary); font-weight:bold;"></select>
 
-                <label class="text-small">Nominal Utang:</label>
+                <label class="text-small">Nominal (Rp):</label>
                 <input type="text" inputmode="numeric" id="nominalUtang" placeholder="Nominal (Rp)" oninput="formatInputRupiah(event)" required>
-                <button type="submit" class="btn-green">Catat Transaksi Kasbon</button>
+                <button type="submit" class="btn-green">💾 Simpan Catatan</button>
             </form>
         </div>
         
         <div class="card">
             <div class="tabs">
-                <div id="tab-btn-piutang" class="tab-btn active" onclick="switchKasbonTab('Piutang')">📘 Piutang</div>
-                <div id="tab-btn-utang" class="tab-btn" onclick="switchKasbonTab('Utang')">📕 Utang</div>
-                <div id="tab-btn-tabungan" class="tab-btn" onclick="switchKasbonTab('Tabungan')">💰 Tabungan</div>
+                <div id="tab-btn-piutang" class="tab-btn active" onclick="switchKasbonTab('Piutang')">📘 Piutang (Ngasbon)</div>
+                <div id="tab-btn-utang" class="tab-btn" onclick="switchKasbonTab('Utang')">💰 Tabungan / Titipan</div>
             </div>
-            <input type="text" id="cariKasbonInput" placeholder="🔍 Cari nama kasbon..." oninput="renderKasbonList()" style="background:#f0f8ff;">
+            <input type="text" id="cariKasbonInput" placeholder="🔍 Cari nama pelanggan..." oninput="renderKasbonList()" style="background:#f0f8ff;">
             <div id="listUtang"></div>
         </div>
     </div>
@@ -1263,7 +1262,6 @@
             let diskon = document.getElementById('kasirDiskon') ? getAngkaMurni(document.getElementById('kasirDiskon').value) : 0;
             let titipKembalian = document.getElementById('kasirTambahDeposit') ? getAngkaMurni(document.getElementById('kasirTambahDeposit').value) : 0;
             
-            // JALUR KHUSUS ADMIN
             let adminVal = document.getElementById('kasirBiayaAdmin') ? getAngkaMurni(document.getElementById('kasirBiayaAdmin').value) : 0;
             let dAdminId = document.getElementById('kasirDompetAdmin') ? document.getElementById('kasirDompetAdmin').value : 'none';
 
@@ -1283,10 +1281,8 @@
             if(document.getElementById('kasirSimpanProduk').checked) {
                 if(!existing) {
                     db.produk.push({ id: Date.now(), nama: nmProd, kategoriId: 'umum', modal: m, harga: j, dompetModal: dModalId, dompetMasuk: dMasukId, jenis: 'Digital' });
-                    isBaru = true;
                 } else {
                     existing.modal = m; existing.harga = j; existing.dompetModal = dModalId; existing.dompetMasuk = dMasukId;
-                    isUpdate = true;
                 }
             }
 
@@ -1306,11 +1302,8 @@
             for(let i=0; i<loopCount; i++) {
                 let diskonBarisIni = gabung ? diskon : diskonPerItem;
                 let adminBarisIni = gabung ? adminVal : adminPerItem;
-                
                 let nmProdFinal = nmProd + (diskonBarisIni > 0 ? ` (-Rp ${formatRupiah(diskonBarisIni)})` : '');
-                
                 let modalFinal = m * qPerItem;
-                // Total Jual = Harga Barang + Biaya Admin - Diskon
                 let jualFinal = (j * qPerItem) + adminBarisIni - diskonBarisIni;
                 let untungFinal = jualFinal - modalFinal;
 
@@ -1319,23 +1312,21 @@
                 if(stat !== 'Lunas') tambahUtangOtomatis(tr);
 
                 if(dModalId !== 'none') { let dm = db.dompet.find(x => String(x.id) === String(dModalId)); if(dm) dm.saldo -= modalFinal; }
-                
                 if(stat === 'Lunas') { 
-                    // Masukkan uang harga barang asli ke Dompet Jual
                     if(dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo += ((j * qPerItem) - diskonBarisIni); }
-                    // Masukkan uang Jasa/Admin ke Dompet Admin
                     if(adminBarisIni > 0 && dAdminId !== 'none') { let da = db.dompet.find(x => String(x.id) === String(dAdminId)); if(da) da.saldo += adminBarisIni; }
                 }
             }
 
-            // MESIN POTONG DEPOSIT LAMA
-            let pakaiDeposit = document.getElementById('kasirPakaiDeposit') ? document.getElementById('kasirPakaiDeposit').checked : false;
+            // MESIN POTONG TABUNGAN (SPLIT PAYMENT DENGAN INPUT)
+            let inputDepositVal = document.getElementById('kasirInputDeposit') ? getAngkaMurni(document.getElementById('kasirInputDeposit').value) : 0;
             let totalJualSemua = (j * qty) + adminVal - diskon;
             let depositDipakai = 0;
 
-            if(pakaiDeposit && stat === 'Lunas') {
+            if(inputDepositVal > 0 && stat === 'Lunas') {
                 let depTersedia = Number(document.getElementById('kasirNominalDeposit').value) || 0;
-                depositDipakai = Math.min(depTersedia, totalJualSemua);
+                // Pastikan gak motong tabungan lebih banyak dari total belanjaan atau sisa tabungan
+                depositDipakai = Math.min(inputDepositVal, depTersedia, totalJualSemua);
 
                 if(depositDipakai > 0) {
                     if(dMasukId !== 'none') { let dk = db.dompet.find(x => String(x.id) === String(dMasukId)); if(dk) dk.saldo -= depositDipakai; }
@@ -1376,19 +1367,17 @@
             if(document.getElementById('kasirBiayaAdmin')) document.getElementById('kasirBiayaAdmin').value = '';
             if(document.getElementById('kasirTambahDeposit')) document.getElementById('kasirTambahDeposit').value = '';
             if(elStatus) elStatus.value = 'Lunas';
-            if(document.getElementById('wadahDepositKasir')) { document.getElementById('wadahDepositKasir').style.display = 'none'; document.getElementById('kasirPakaiDeposit').checked = false; }
+            if(document.getElementById('wadahDepositKasir')) { document.getElementById('wadahDepositKasir').style.display = 'none'; document.getElementById('wadahDepositKasir').innerHTML = ''; }
 
             simpanData();
 
             let pesanAkhir = stat === 'Lunas' ? '✅ Lunas! Saldo masuk & modal terpotong.' : '📝 Masuk Kasbon! Modal terpotong.';
             if(diskon > 0) pesanAkhir += `\n(Diskon Rp ${formatRupiah(diskon)} berhasil diterapkan)`;
             if(adminVal > 0) pesanAkhir += `\n(Jasa Admin Rp ${formatRupiah(adminVal)} dipisah ke Jalur Dompet Admin)`;
-            if(depositDipakai > 0) pesanAkhir += `\n(Potong Saldo Deposit: -Rp ${formatRupiah(depositDipakai)})`;
-            if(titipKembalian > 0) pesanAkhir += `\n(Titipan Kembalian Rp ${formatRupiah(titipKembalian)} disimpan ke Utang Toko)`;
+            if(depositDipakai > 0) pesanAkhir += `\n(Potong Saldo Tabungan: -Rp ${formatRupiah(depositDipakai)})`;
+            if(titipKembalian > 0) pesanAkhir += `\n(Titipan Tabungan Rp ${formatRupiah(titipKembalian)} disimpan)`;
 
-            // PANGGIL MESIN SUARA OFFLINE KITA
             if(stat === 'Lunas') { mainkanSuara('kaching'); } else { mainkanSuara('ting'); }
-
             setTimeout(() => { alert(pesanAkhir); }, 300);
             
         } catch(err) { alert("Error Kasir: " + err.message); }
@@ -2223,16 +2212,46 @@ function eksekusiSimpanCicilan(e) {
     function pilihPelanggan(i, nama) { 
         if (modePencarian === 'pelanggan-kasir') {
             document.getElementById('kasirPelangganId').value = i; document.getElementById('labelKasirPelanggan').innerHTML = `<b>${nama}</b>`; 
+            
+            // INJECT HTML UNTUK SPLIT PAYMENT TABUNGAN
+            let wadahDep = document.getElementById('wadahDepositKasir');
+            if(wadahDep) {
+                let totalDeposit = 0;
+                let utangToko = db.utang.filter(u => u.nama === nama && u.jenis === 'Utang' && u.status !== 'Lunas');
+                utangToko.forEach(u => {
+                    let sisa = (Number(u.nominal)||0) - (u.cicilan ? u.cicilan.reduce((a,c)=>a+Number(c.nominal),0) : 0);
+                    if(sisa > 0) totalDeposit += sisa;
+                });
+                if(totalDeposit > 0) {
+                    wadahDep.innerHTML = `
+                        <span style="font-size:12px; color:#856404; display:block; margin-bottom:5px;">💡 Pelanggan ini punya Saldo Tabungan: <b id="teksSaldoDeposit">Rp ${formatRupiah(totalDeposit)}</b></span>
+                        <label style="font-size:12px; font-weight:bold; cursor:pointer; color:#856404;">Potong bayar dari tabungan (Rp):</label>
+                        <input type="text" inputmode="numeric" id="kasirInputDeposit" placeholder="Ketik nominal..." oninput="formatInputRupiah(event)" style="border-color:#ffc107; margin-top:5px; margin-bottom:0;">
+                        <input type="hidden" id="kasirNominalDeposit" value="${totalDeposit}">
+                    `;
+                    wadahDep.style.display = 'block';
+                } else {
+                    wadahDep.style.display = 'none';
+                    wadahDep.innerHTML = '';
+                }
+            }
         } else if (modePencarian === 'pelanggan-utang') {
             document.getElementById('utangPelangganId').value = i; document.getElementById('labelUtangPelanggan').innerHTML = `<b>${nama}</b>`; 
         } else if (modePencarian === 'pelanggan-edit-kasbon') {
             document.getElementById('editKasbonNama').value = nama; document.getElementById('labelEditKasbonPelanggan').innerHTML = `<b>${nama}</b>`; 
         } else if (modePencarian === 'pelanggan-edit-trans') {
             document.getElementById('editTransPelangganNama').value = nama; document.getElementById('labelEditTransPelanggan').innerHTML = `<b>${nama}</b>`; 
-        } else if (modePencarian === 'pelanggan-tabungan') {
-            document.getElementById('tabunganPelangganId').value = i; document.getElementById('labelTabunganPelanggan').innerHTML = `<b>${nama}</b>`; 
         }
         tutupPencarian(); 
+
+        // OVERRIDE UI KASBON (Sapu Bersih yang Lama)
+        let tUtang = document.getElementById('tab-btn-utang'); if(tUtang) tUtang.innerHTML = "💰 Tabungan / Titipan";
+        let tTab = document.getElementById('tab-btn-tabungan'); if(tTab) tTab.style.display = "none";
+        let jUtang = document.getElementById('jenisUtang');
+        if(jUtang && jUtang.options.length > 1) {
+            jUtang.options[0].text = "Pelanggan Ngasbon (Piutang)";
+            jUtang.options[1].text = "Pelanggan Nabung/Titip Uang (Tabungan)";
+        }
     }
 
     function tambahUtangOtomatis(t) { 
