@@ -1007,7 +1007,7 @@
         
         if(!db.alokasi) { db.alokasi = [{ id: Date.now(), nama: 'Putar Modal', persen: 100 }]; }
         if(!db.pengeluaran) db.pengeluaran = [];
-        if(!db.pemasukanLain) db.pemasukanLain = []; // Brankas khusus Bunga Bank agar Omset tidak bocor
+        if(!db.pemasukanLain) db.pemasukanLain = [];
         if(!db.tema) db.tema = '#007bff';
         if(!db.filterRiwayat) db.filterRiwayat = 'semua';
         if(!db.filterAlokasi) db.filterAlokasi = 'bulanIni';
@@ -1035,7 +1035,8 @@
         }
         if(db.filterAlokasi === 'custom') document.getElementById('wadahFilterCustomAlokasi').style.display = 'block';
         
-        simpanData();
+        // Panggil fungsi krusial ini!
+        updateSemuaTampilan();
     };
 
     function simpanData() { 
@@ -1043,6 +1044,11 @@
         localStorage.setItem('sistemUMKMPro', JSON.stringify(db)); 
         updateSemuaTampilan(); 
     }
+
+    // WAJIB: Memastikan semua komponen ter-render saat aplikasi mulai
+    document.addEventListener('DOMContentLoaded', () => {
+        updateSemuaTampilan();
+    });
     
     function formatTanggalIndo(tglStr) {
         if(!tglStr) return "";
@@ -1609,8 +1615,15 @@
             let tD = u.cicilan.reduce((a,c) => a + (Number(c.nominal) || 0), 0);
             if(tD >= (Number(u.nominal) || 0)) { 
                 selesaikanUtang(u); alert("Lunas & Masuk Riwayat!\nSaldo dompet telah disesuaikan."); 
-            } else { 
-                function bukaModalTambahTabungan() { document.getElementById('modal-tambah-tabungan').classList.add('active'); }
+            } // Penutup else
+            simpanData(); tutupModalCicilan();
+        } catch(err) { alert("Error: " + err.message); }
+    }
+
+    // Fungsi Tabungan (Ditaruh di luar fungsi kasir agar tidak error)
+    function bukaModalTambahTabungan() { 
+        document.getElementById('modal-tambah-tabungan').classList.add('active'); 
+    }
     
     function eksekusiBukaTabungan(e) {
         e.preventDefault();
