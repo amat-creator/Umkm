@@ -1574,9 +1574,7 @@
         simpanData();
     }
 
-    function tutupModalCicilan() { document.getElementById('modal-cicilan').classList.remove('active'); }
-    
-    function eksekusiSimpanCicilan(e) {
+function eksekusiSimpanCicilan(e) {
         e.preventDefault();
         try {
             let idUtang = document.getElementById('cicilanUtangId').value; 
@@ -1615,12 +1613,14 @@
             let tD = u.cicilan.reduce((a,c) => a + (Number(c.nominal) || 0), 0);
             if(tD >= (Number(u.nominal) || 0)) { 
                 selesaikanUtang(u); alert("Lunas & Masuk Riwayat!\nSaldo dompet telah disesuaikan."); 
-            } // Penutup else
+            } else { 
+                alert((idEdit !== "" ? "Cicilan diubah!" : "Cicilan dicatat!") + "\nSaldo dompet telah disesuaikan."); 
+            } 
             simpanData(); tutupModalCicilan();
         } catch(err) { alert("Error: " + err.message); }
     }
 
-    // Fungsi Tabungan (Ditaruh di luar fungsi kasir agar tidak error)
+    // --- FUNGSI TABUNGAN (Di luar agar tombol tidak mati) ---
     function bukaModalTambahTabungan() { 
         document.getElementById('modal-tambah-tabungan').classList.add('active'); 
     }
@@ -1654,6 +1654,8 @@
         mainkanSuara('ting');
         alert("Tabungan berhasil dibuka!");
     }
+
+    function renderKategoriSelect() {
         let html = db.kategoriProduk.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
         document.getElementById('produkKategoriId').innerHTML = html;
         document.getElementById('selectPindahKat').innerHTML = html;
