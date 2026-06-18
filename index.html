@@ -2441,6 +2441,29 @@ function renderDaftarTransaksiBeranda() {
             let baris = document.querySelectorAll('#wadahInfoPelanggan .info-row'); let infoArr = []; baris.forEach(row => { let l = row.querySelector('.info-label').value.trim(); let v = row.querySelector('.info-value').value.trim(); if(l || v) infoArr.push({ label: l || 'Info', value: v }); }); if(idEdit !== "") { let p = db.pelanggan.find(x => String(x.id) === String(idEdit)); if(p) { p.nama = nama; p.info = infoArr; } } else { db.pelanggan.push({ id: Date.now(), nama: nama, info: infoArr }); } simpanData(); batalEditPelanggan(); 
         } catch(e) { alert("Error: " + e.message); } 
     }
+
+    function editPelangganList(id) {
+        let p = db.pelanggan.find(x => String(x.id) === String(id));
+        if(!p) return;
+        document.getElementById('editFormPelId').value = p.id;
+        document.getElementById('formPelNama').value = p.nama;
+        document.getElementById('wadahInfoPelanggan').innerHTML = '';
+        (p.info || []).forEach(inf => tambahBarisInfo(inf.label, inf.value));
+        
+        document.getElementById('judulFormPelanggan').innerText = "✏️ Edit Pelanggan";
+        document.getElementById('btnSubmitPelanggan').innerText = "💾 Simpan Perubahan";
+        document.getElementById('btnBatalEditPelanggan').style.display = "inline-block";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    function batalEditPelanggan() {
+        document.getElementById('editFormPelId').value = '';
+        document.getElementById('formPelNama').value = '';
+        document.getElementById('wadahInfoPelanggan').innerHTML = '';
+        document.getElementById('judulFormPelanggan').innerText = "Tambah Pelanggan Baru";
+        document.getElementById('btnSubmitPelanggan').innerText = "💾 Simpan Kontak";
+        document.getElementById('btnBatalEditPelanggan').style.display = "none";
+    }
    function renderDaftarPelanggan() { 
         let kw = (document.getElementById('cariPelangganInput')||{}).value || ""; kw = kw.toLowerCase(); 
         let pFiltered = db.pelanggan.filter(p => { 
