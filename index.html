@@ -1059,7 +1059,10 @@
             document.getElementById('wadahFilterCustom').style.display = 'block'; 
             if(db.filterRiwayatCustom) { document.getElementById('tglMulaiCustom').value = db.filterRiwayatCustom.mulai; document.getElementById('tglAkhirCustom').value = db.filterRiwayatCustom.akhir; }
         }
-        if(db.filterAlokasi === 'custom') document.getElementById('wadahFilterCustomAlokasi').style.display = 'block';
+        if(db.filterAlokasi === 'custom') {
+            document.getElementById('wadahFilterCustomAlokasi').style.display = 'block';
+            if(db.filterAlokasiCustom) { document.getElementById('tglMulaiAlokasi').value = db.filterAlokasiCustom.mulai || ''; document.getElementById('tglAkhirAlokasi').value = db.filterAlokasiCustom.akhir || ''; }
+        }
         
         // Panggil fungsi krusial ini!
         prosesBungaOtomatis();
@@ -1492,7 +1495,19 @@
         u.rincianBarang[idx].produk = document.getElementById('editRincianProduk').value;
         u.rincianBarang[idx].nominal = nomBaru;
         
-        u.nominal = (Number(u.nominal) || 0) - nomLama + nomBaru;
+        let selisih = nomBaru - nomLama;
+        u.nominal = (Number(u.nominal) || 0) + selisih;
+        
+        if(u.dompetId && u.dompetId !== 'none') {
+            let d = db.dompet.find(x => String(x.id) === String(u.dompetId));
+            if(d) {
+                if(u.jenis === 'Piutang') d.saldo -= selisih;
+                else if(u.jenis === 'Utang') d.saldo += selisih;
+            }
+        }
+        
+        let tD = (Array.isArray(u.cicilan) ? u.cicilan : []).reduce((a,c) => a + (Number(c.nominal) || 0), 0);
+        if(tD >= u.nominal) { selesaikanUtang(u); } else { u.status = 'Belum Lunas'; }
         
         let transId = u.rincianBarang[idx].transId;
         if(transId) { let t = db.transaksi.find(x => String(x.id) === String(transId)); if(t) { t.total = nomBaru; t.tanggal = u.rincianBarang[idx].tanggal; t.namaProduk = u.rincianBarang[idx].produk; } }
@@ -1628,7 +1643,17 @@
     function hapusCicilan(idUtang, idx) {
         if(!confirm("Yakin ingin menghapus riwayat cicilan ini?")) return;
         let u = db.utang.find(x => String(x.id) === String(idUtang)); if(!u) return;
-        u.cicilan.splice(idx, 1); 
+        let c = u.cicilan[idx];
+        if(c && u.dompetId && u.dompetId !== 'none') {
+            let dk = db.dompet.find(x => String(x.id) === String(u.dompetId));
+            if(dk) {
+                if(u.jenis === 'Piutang') dk.saldo -= Number(c.nominal);
+                else if(u.jenis === 'Utang') dk.saldo += Number(c.nominal);
+            }
+        }
+        u.cicilan.splice(idx, 1);
+        let tD = u.cicilan.reduce((a,x) => a + (Number(x.nominal) || 0), 0);
+        if(tD < (Number(u.nominal) || 0)) u.status = 'Belum Lunas';
         simpanData();
     }
 
@@ -1670,6 +1695,7 @@ function eksekusiSimpanCicilan(e) {
             if(tD >= (Number(u.nominal) || 0)) { 
                 selesaikanUtang(u); alert("Lunas & Masuk Riwayat!\nSaldo dompet telah disesuaikan."); 
             } else { 
+                u.status = 'Belum Lunas';
                 alert((idEdit !== "" ? "Cicilan diubah!" : "Cicilan dicatat!") + "\nSaldo dompet telah disesuaikan."); 
             } 
             simpanData(); tutupModalCicilan();
@@ -2296,7 +2322,7 @@ function eksekusiSimpanCicilan(e) {
 
             if(tempStatusLama==='Lunas'&&t.status==='Piutang') tambahUtangOtomatis(t); 
             else if(tempStatusLama==='Piutang'&&t.status==='Lunas') hapusDariUtangOtomatis(t.id); 
-            else if(t.status==='Piutang') updateUtangOtomatis(t); 
+            else if(t.status==='Piutang') { hapusDariUtangOtomatis(t.id); tambahUtangOtomatis(t); }
             
             simpanData(); tutupEditTransaksi(); alert("Perubahan disimpan & dompet disesuaikan!");
         } 
@@ -2709,7 +2735,11 @@ function renderDaftarTransaksiBeranda() {
             else if(p==='bulanIni') ok=t.tanggal.startsWith(bI); 
             else if(p==='hariIni') ok=t.tanggal===tH; 
             else if(p==='mingguan') ok=(t.tanggal>=tM&&t.tanggal<=tH); 
-            else if(p==='custom') { let m=document.getElementById('tglMulaiAlokasi').value, a=document.getElementById('tglAkhirAlokasi').value; if(m&&a) ok=(t.tanggal>=m&&t.tanggal<=a); } 
+            else if(p==='custom') { 
+                let m=document.getElementById('tglMulaiAlokasi').value, a=document.getElementById('tglAkhirAlokasi').value; 
+                if(m&&a) ok=(t.tanggal>=m&&t.tanggal<=a); 
+                db.filterAlokasiCustom = {mulai: m, akhir: a};
+            } 
             
             return ok ? s+(hU ? t.untung : t.total) : s; 
         }, 0);
