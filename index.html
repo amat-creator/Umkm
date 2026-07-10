@@ -529,6 +529,9 @@
                 <label class="text-small text-blue">💼 Saldo Dompet Terkait:</label>
                 <select id="utangDompetId" style="background:#e8f4fd; border-color:var(--primary); font-weight:bold;"></select>
 
+                <label class="text-small">Keterangan / Catatan:</label>
+                <input type="text" id="keteranganUtang" placeholder="Contoh: Pinjam uang tunai / Beli pulsa" required style="border-color: var(--primary);">
+
                 <label class="text-small">Nominal (Rp):</label>
                 <input type="text" inputmode="numeric" id="nominalUtang" placeholder="Nominal (Rp)" oninput="formatInputRupiah(event)" required>
                 <button type="submit" class="btn-green">💾 Simpan Catatan</button>
@@ -539,7 +542,7 @@
             <div class="tabs">
                 <div id="tab-btn-piutang" class="tab-btn active" onclick="switchKasbonTab('Piutang')">📘 Piutang (Ngasbon)</div>
                 <div id="tab-btn-utang" class="tab-btn" onclick="switchKasbonTab('Utang')">💰 Tabungan</div>
-                <div id="tab-btn-lunas" class="tab-btn" onclick="switchKasbonTab('Lunas')">✅ Arsip Lunas</div>
+                <div id="tab-btn-lunas" class="tab-btn" onclick="switchKasbonTab('Lunas')">✅ Riwayat Lunas</div>
             </div>
             <input type="text" id="cariKasbonInput" placeholder="🔍 Cari nama pelanggan..." oninput="renderKasbonList()" style="background:#f0f8ff;">
             <div id="listUtang"></div>
@@ -965,8 +968,11 @@
             <hr style="margin:25px 0; border:0; border-top:1px dashed #ccc;">
             
             <h4 style="color:var(--primary); margin-bottom:5px;">💾 Backup Data Database (JSON)</h4>
-            <p class="text-small" style="margin-bottom:10px;">Download seluruh database aplikasi ini untuk diamankan ke HP/Laptop.</p>
-            <button type="button" class="btn-warning" style="margin-bottom:15px; border:none;" onclick="downloadBackupJSON()">⬇️ Download File Backup (.json)</button>
+            <p class="text-small" style="margin-bottom:10px;">Download file database atau salin teksnya langsung jika sedang malas download file.</p>
+            <div class="grid-2" style="margin-bottom:15px;">
+                <button type="button" class="btn-warning" style="margin-bottom:0; border:none; font-size:12px;" onclick="downloadBackupJSON()">⬇️ Download File</button>
+                <button type="button" class="btn-blue" style="margin-bottom:0; border:none; font-size:12px; color:white;" onclick="salinBackupJSON()">📋 Salin Teks (Copy)</button>
+            </div>
             
             <h4 style="color:#d81b60; margin-bottom:5px;">📂 Restore Data (Pulihkan)</h4>
             <p class="text-small" style="margin-bottom:10px;">Pilih file backup (.json) yang pernah didownload untuk memulihkan data jika aplikasi tereset.</p>
@@ -1028,9 +1034,14 @@
     window.onload = function() {
         let savedData = localStorage.getItem('sistemUMKMPro');
         if(savedData) {
-            let parsedData = JSON.parse(savedData);
-            db = { ...db, ...parsedData }; 
-            if(typeof db.saldo !== 'undefined') { db.dompet = [{ id: Date.now(), nama: "Dompet Utama", kategori: "Kas Fisik", saldo: db.saldo, pecahan: [] }]; delete db.saldo; }
+            try {
+                let parsedData = JSON.parse(savedData);
+                db = { ...db, ...parsedData }; 
+                if(typeof db.saldo !== 'undefined') { db.dompet = [{ id: Date.now(), nama: "Dompet Utama", kategori: "Kas Fisik", saldo: db.saldo, pecahan: [] }]; delete db.saldo; }
+            } catch (error) {
+                console.error("Data JSON bermasalah:", error);
+                alert("⚠️ Sistem mendeteksi error pada data penyimpanan (JSON).\n\nJika layar nge-blank atau data hilang, silakan masuk ke 'Menu Lainnya' -> 'Data Excel / Backup' lalu gunakan tombol 'Pulihkan Data' dari file .json terakhirmu.");
+            }
         }
         
         db.pelanggan.forEach(p => { if(p.nomor && !p.info) { p.info = [{ label: 'HP', value: p.nomor }]; delete p.nomor; } if(!p.info) p.info = []; });
@@ -1142,8 +1153,19 @@
         let hari = getNamaHari(tglStr);
         return `${hari}, ${d} ${namaBulanIndo[m-1]} ${y}`;
     }
+    
 
-    function formatInputRupiah(e) { let v = e.target.value.replace(/[^0-9]/g, ''); e.target.value = v !== '' ? parseInt(v, 10).toLocaleString('id-ID') : ''; }
+    function formatInputRupiah(e) { 
+        let v = e.target.value.replace(/[^0-9]/g, ''); 
+        if (v === '') {
+            e.target.value = '';
+        } else if (/^0+$/.test(v)) {
+            // Jika isinya cuma kumpulan angka nol (misal: 000), biarkan saja agar bisa diketik angka baru di depannya
+            e.target.value = v; 
+        } else {
+            e.target.value = parseInt(v, 10).toLocaleString('id-ID'); 
+        }
+    }
     function getAngkaMurni(str) { return parseInt(str.toString().replace(/[^0-9]/g, ''), 10) || 0; }
     function formatRupiah(angka) { return parseInt(angka).toLocaleString('id-ID'); }
     function ambilTanggal() { let d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -1414,11 +1436,14 @@
             let n = getAngkaMurni(document.getElementById('nominalUtang').value);
             let j = document.getElementById('jenisUtang').value;
             let dId = document.getElementById('utangDompetId').value; 
+            let ket = document.getElementById('keteranganUtang').value.trim();
 
             if(n <= 0) return alert("Silakan isi nominal uangnya terlebih dahulu!");
+            if(!ket) return alert("Keterangan wajib diisi biar tidak lupa!");
 
             let ex = db.utang.find(u => u.nama === nmUtang && u.jenis === j && u.status !== 'Lunas');
-            let r = { transId: null, tanggal: ambilTanggal(), hari: getNamaHari(ambilTanggal()), produk: "Pinjaman/Manual", nominal: n };
+            // Sistem sekarang merekam keterangan yang kamu ketik, bukan lagi "Pinjaman/Manual"
+            let r = { transId: null, tanggal: ambilTanggal(), hari: getNamaHari(ambilTanggal()), produk: ket, nominal: n };
             
             if(ex) { ex.nominal = (Number(ex.nominal) || 0) + n; if(!ex.rincianBarang) ex.rincianBarang=[]; ex.rincianBarang.push(r); } 
             else { db.utang.push({ id: Date.now(), transId: null, jenis: j, nama: nmUtang, namaProduk: "Manual", nominal: n, status: 'Belum Lunas', cicilan: [], rincianBarang: [r], dompetId: dId }); }
@@ -1474,7 +1499,51 @@
                     </div>
                 </div>`).join('') : `<div class="text-small">${u.namaProduk}</div>`;
             
-            return `<div class="list-item" style="background:#fcfcfc; padding:10px; border-radius:8px; border:1px solid #ddd; margin-bottom:10px;"><div class="accordion-header flex-between" onclick="toggleAccordionUtang('${u.id}')"><div><b style="font-size:15px;">${u.nama}</b><br><span class="text-small">Total Tagihan: Rp ${formatRupiah(u.nominal)}</span><br><span class="${u.jenis==='Piutang'?'text-blue':'text-red'}" style="font-weight:bold;">Sisa Tagihan: Rp ${formatRupiah(sU)}</span></div><div><span class="text-small" style="background:#eee; padding:5px 10px; border-radius:15px; font-weight:bold;">${u.status} ⬇️</span></div></div><div id="acc-${u.id}" class="accordion-content"><div style="margin-bottom: 10px;"><b class="text-small text-blue">📝 Rincian Barang:</b><div style="background:#fff; padding:5px 8px; border-radius:5px; border:1px solid #ddd; margin-top:5px; max-height:150px; overflow-y:auto;">${hr}</div></div><div style="margin-bottom: 10px; max-height: 100px; overflow-y: auto;"><b class="text-small">Riwayat Cicilan:</b><br>${hc}</div><div class="flex-between" style="gap:5px; flex-wrap:wrap; margin-top:10px;"><button type="button" class="btn-outline" style="width:auto; padding:8px 10px; margin:0; font-size:11px; flex:1;" onclick="editPintarKasbon('${u.id}')">✏️ Edit Info</button><button type="button" class="btn-warning" style="width:auto; flex:1; padding:8px 10px; margin:0; font-size:11px;" onclick="bukaModalCicilan('${u.id}')">💳 Cicil</button><button type="button" class="btn-green" style="width:auto; flex:1; padding:8px 10px; margin:0; font-size:11px;" onclick="lunasSekaligus('${u.id}')">✅ Lunas Full</button><button type="button" class="btn-wa" style="width:auto; padding:8px 10px; margin:0; border-color:#25D366; color:#25D366;" onclick="kirimWATagihan('${u.id}')">📱 WA</button><button type="button" class="btn-red" style="width:auto; padding:8px 10px; margin:0;" onclick="hapusUtang('${u.id}')">🗑</button></div></div></div>`;
+            // Logika UI Pintar: Beda wujud antara Lunas dan Belum Lunas
+            let isLunas = u.status === 'Lunas';
+            let bgCard = isLunas ? '#f0fdf4' : '#fcfcfc'; // Hijau muda kalau lunas
+            let borderCard = isLunas ? '#c3e6cb' : '#ddd';
+            let infoSisa = isLunas ? 
+                `<span class="text-green" style="font-weight:bold;">🎉 Lunas Sepenuhnya!</span>` : 
+                `<span class="${u.jenis==='Piutang'?'text-blue':'text-red'}" style="font-weight:bold;">Sisa Tagihan: Rp ${formatRupiah(sU)}</span>`;
+                
+            let tombolAksi = isLunas ? 
+                `<button type="button" class="btn-outline" style="width:auto; padding:8px 10px; margin:0; font-size:11px; flex:1;" onclick="editPintarKasbon('${u.id}')">✏️ Edit Info</button>
+                 <button type="button" class="btn-red" style="width:auto; padding:8px 10px; margin:0; flex:1;" onclick="hapusUtang('${u.id}')">🗑 Hapus Riwayat</button>` 
+                : 
+                `<button type="button" class="btn-outline" style="width:auto; padding:8px 10px; margin:0; font-size:11px; flex:1;" onclick="editPintarKasbon('${u.id}')">✏️ Edit Info</button>
+                 <button type="button" class="btn-warning" style="width:auto; flex:1; padding:8px 10px; margin:0; font-size:11px;" onclick="bukaModalCicilan('${u.id}')">💳 Cicil</button>
+                 <button type="button" class="btn-green" style="width:auto; flex:1; padding:8px 10px; margin:0; font-size:11px;" onclick="lunasSekaligus('${u.id}')">✅ Lunas Full</button>
+                 <button type="button" class="btn-wa" style="width:auto; padding:8px 10px; margin:0; border-color:#25D366; color:#25D366;" onclick="kirimWATagihan('${u.id}')">📱 WA</button>
+                 <button type="button" class="btn-red" style="width:auto; padding:8px 10px; margin:0;" onclick="hapusUtang('${u.id}')">🗑</button>`;
+
+            return `<div class="list-item" style="background:${bgCard}; padding:10px; border-radius:8px; border:1px solid ${borderCard}; margin-bottom:10px;">
+                <div class="accordion-header flex-between" style="align-items: flex-start;">
+                    <div style="display:flex; gap:10px; align-items:flex-start;">
+                        <input type="checkbox" class="check-kasbon" value="${u.id}" style="width:auto; margin-top:4px;" onchange="cekStatusPilihSemuaKasbon(); event.stopPropagation();">
+                        <div onclick="toggleAccordionUtang('${u.id}')" style="cursor:pointer;">
+                            <b style="font-size:15px;">${u.nama}</b><br>
+                            <span class="text-small">Total Tagihan: Rp ${formatRupiah(u.nominal)}</span><br>
+                            ${infoSisa}
+                        </div>
+                    </div>
+                    <div onclick="toggleAccordionUtang('${u.id}')" style="cursor:pointer;">
+                        <span class="text-small" style="background:${isLunas?'#d4edda':'#eee'}; color:${isLunas?'#155724':'#333'}; padding:5px 10px; border-radius:15px; font-weight:bold;">${u.status} ⬇️</span>
+                    </div>
+                </div>
+                <div id="acc-${u.id}" class="accordion-content">
+                    <div style="margin-bottom: 10px;">
+                        <b class="text-small text-blue">📝 Rincian Barang:</b>
+                        <div style="background:#fff; padding:5px 8px; border-radius:5px; border:1px solid #ddd; margin-top:5px; max-height:150px; overflow-y:auto;">${hr}</div>
+                    </div>
+                    <div style="margin-bottom: 10px; max-height: 100px; overflow-y: auto;">
+                        <b class="text-small">Riwayat Cicilan:</b><br>${hc}
+                    </div>
+                    <div class="flex-between" style="gap:5px; flex-wrap:wrap; margin-top:10px;">
+                        ${tombolAksi}
+                    </div>
+                </div>
+            </div>`;
         }).join('') || '<div class="text-small text-center" style="padding:15px; color: gray;">Kosong / Semua lunas! 🎉</div>';
     }
 
@@ -2112,7 +2181,7 @@ function eksekusiSimpanCicilan(e) {
                     
                     <button type="button" class="btn-outline" style="width:auto; padding:8px; margin:0; font-size:12px; background:#fff;" onmousedown="event.preventDefault()" onclick="tambahNolTigaPecahan(${idx})"><b>000</b></button>
                     
-                    <button type="button" class="btn-warning" style="width:auto; padding:8px; margin:0; font-size:13px; border:none; background:#ffc107;" onclick="resetNilaiPecahan(${idx})">🧹</button>
+                    <button type="button" class="btn-warning" style="width:auto; padding:8px; margin:0; font-size:13px; border:none; background:#ffc107;" onmousedown="event.preventDefault()" onclick="resetNilaiPecahan(${idx})">🧹</button>
                 </div>
                 <div class="text-bantuan" id="bantuan-pecahan-${idx}" style="font-size:10px; color:#888; margin-top:3px;">Terbaca: Rp ${formatRupiah(p.nilai)}</div>
             </div>
@@ -2139,6 +2208,7 @@ function eksekusiSimpanCicilan(e) {
         if(!inputEl) return;
         inputEl.value = '';
         updateNilaiPecahan(idx, '');
+        inputEl.focus(); // Tarik paksa keyboard agar tetap tampil di layar
     }
 
     function tambahPecahan() { let namaP = prompt("Masukkan jenis pecahan:"); if(namaP && namaP.trim() !== "") { let d = db.dompet.find(x => String(x.id) === String(idDompetAktif)); d.pecahan.push({ nama: namaP.trim(), nilai: 0 }); renderPecahanDompet(); } }
@@ -3348,6 +3418,16 @@ function renderDaftarTransaksiBeranda() {
     // ==========================================
     // MESIN BACKUP & RESTORE JSON
     // ==========================================
+function salinBackupJSON() {
+        let dataLokal = localStorage.getItem('sistemUMKMPro');
+        if(!dataLokal) {
+            return alert("Data masih kosong, tidak ada yang bisa disalin!");
+        }
+        
+        // Kita manfaatkan fungsi salinTeks bawaan yang sudah ada di aplikasimu
+        salinTeks(dataLokal, "✅ Seluruh data database (JSON) berhasil disalin!\nSilakan Paste (Tempel) di catatan HP atau kirim ke WA/Telegram kamu sebagai cadangan aman.");
+    }
+    
     function downloadBackupJSON() {
         let dataLokal = localStorage.getItem('sistemUMKMPro');
         if(!dataLokal) {
