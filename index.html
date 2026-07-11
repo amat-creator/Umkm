@@ -115,6 +115,20 @@
 <body>
 
 <div class="app-container">
+
+    <!-- LAYAR LOGIN & LOADING SINKRONISASI -->
+    <div id="login-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--primary); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:white;">
+        <h2 style="margin-bottom:5px;">🔒 Sistem Kasir</h2>
+        <p style="font-size:12px; margin-bottom:20px;">Masukkan PIN Akses Karyawan/Owner</p>
+        <input type="password" id="pin-login" inputmode="numeric" placeholder="****" style="text-align:center; font-size:24px; letter-spacing:10px; width:200px; border-radius:10px; border:none; padding:15px; margin-bottom:15px; color:#333; font-weight:bold;" maxlength="4">
+        <button type="button" class="btn-warning" style="width:200px; border:none; font-size:16px; padding:12px;" onclick="cekLogin()">Buka Kunci</button>
+        <p id="pesan-login" style="color:#ffcdd2; font-size:12px; margin-top:10px; display:none; font-weight:bold;">❌ PIN Salah!</p>
+        
+        <div id="loading-sync" style="display:none; margin-top:20px; font-size:12px; background:rgba(0,0,0,0.5); padding:10px; border-radius:8px;">
+            ⏳ Mengambil data dari Cloud Google...
+        </div>
+    </div>
+
     <div class="header" style="position: relative;">
         <div style="position: absolute; right: 20px; top: 20px; cursor: pointer; font-size: 24px; z-index: 10;" onclick="document.getElementById('modal-sawer').classList.add('active')">☕</div>
         <h2 id="judulHalaman">Kasir</h2>
@@ -246,6 +260,9 @@
                 <label class="text-small" style="text-align:left; display:block;">Nominal Bayar (Rp):</label>
                 <input type="text" inputmode="numeric" id="cicilanNominal" placeholder="0" oninput="formatInputRupiah(event)" required>
                 
+                <label class="text-small" style="text-align:left; display:block;">Keterangan (Opsional):</label>
+                <input type="text" id="cicilanKeterangan" placeholder="Cth: Transfer BCA / Titip teman" style="margin-bottom:0;">
+
                 <label class="text-small text-green" style="font-weight:bold; display:block; margin-top:10px;">📥 Uang Masuk / Keluar Dompet:</label>
                 <select id="cicilanDompetMasuk" style="background:#e8f5e9; border-color:#28a745; font-weight:bold; margin-bottom: 0;"></select>
 
@@ -562,12 +579,14 @@
             <div class="menu-btn" onclick="bukaSubHalaman('sub-portal')"><span>⚖️</span>Simulasi Kas</div> 
             <div class="menu-btn" onclick="bukaSubHalaman('sub-wa')"><span>📱</span>Struk WA</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-riwayat')"><span>📝</span>Riwayat Full</div>
+            <div class="menu-btn" onclick="bukaSubHalaman('sub-catatan')"><span>📒</span>Catatan (Notes)</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-backup')"><span>💾</span>Data Excel</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-tema')"><span>🎨</span>Tema</div> 
             <div class="menu-btn" onclick="bukaSubHalaman('sub-mutasi')"><span>📑</span>Mutasi Kas</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-struk-manual')"><span>🧾</span>Struk Manual</div>
             <div class="menu-btn" onclick="bukaSubHalaman('sub-struk-cetak')"><span>🖨️</span>Struk Cetak</div>
             <div class="menu-btn" onclick="alert('Sistem Manajemen UMKM Pro\nVersi: 2.1 (Full Feature)\nDeveloper: Muhammad Rizky')"><span>ℹ️</span>Info App</div>
+            <div class="menu-btn" onclick="logoutSistem()" style="background:#fffafa; border:1px solid #ffcdd2; color:#dc3545;"><span>🚪</span>Keluar (Logout)</div>
         </div>
 
         
@@ -944,6 +963,22 @@
             </div>
         </div>
 
+        <div id="sub-catatan" class="card" style="display:none;">
+            <button type="button" class="btn-outline btn-back" onclick="kembaliKeMenu()">⬅ Kembali</button>
+            <h4>📒 Buku Catatan Bebas</h4>
+            <p class="text-small" style="margin-bottom: 15px;">Tulis ide, pengingat, tagihan suplier, atau nomor penting di sini.</p>
+            <form onsubmit="eksekusiSimpanCatatan(event)" style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px;">
+                <input type="hidden" id="editCatatanId" value="">
+                <input type="text" id="catatanJudul" placeholder="Judul Catatan..." required style="font-weight:bold; border-color:var(--primary);">
+                <textarea id="catatanIsi" rows="4" placeholder="Tulis isi catatan di sini..." required style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:8px; font-family:inherit;"></textarea>
+                <div class="grid-2">
+                    <button type="submit" id="btnSimpanCatatan" class="btn-green" style="margin-bottom:0;">💾 Simpan Catatan</button>
+                    <button type="button" id="btnBatalCatatan" class="btn-outline" style="display:none; margin-bottom:0;" onclick="batalEditCatatan()">Batal</button>
+                </div>
+            </form>
+            <div id="listCatatanDinamis"></div>
+        </div>
+
         <div id="sub-backup" class="card" style="display:none;">
             <button type="button" class="btn-outline btn-back" onclick="kembaliKeMenu()">⬅ Kembali</button>
             <h4 style="color:var(--primary); margin-bottom:5px;">📋 Ekspor Data (Ke Excel)</h4>
@@ -996,8 +1031,57 @@
         templateWA: null, tema: '#007bff', filterRiwayat: 'semua', filterAlokasi: 'bulanIni', filterRiwayatCustom: {mulai: '', akhir: ''}
     };
     
+    // ⬇️ UBAH ANGKA 1234 DI BAWAH INI DENGAN PIN RAHASIAMU
+    const PIN_AKSES = "1234"; 
+    
+    // ⬇️ LINK GOOGLE SCRIPT KAMU SUDAH OTOMATIS TERPASANG DI SINI
+    const API_URL = "()"; 
+
     let filterSaatIni = 'semua';
     let modePencarian = ''; 
+
+    // --- MESIN LOGIN & CLOUD SYNC ---
+    function cekLogin() {
+        let input = document.getElementById('pin-login').value;
+        if(input === PIN_AKSES) {
+            localStorage.setItem('isLoggedIn', 'true');
+            document.getElementById('pesan-login').style.display = 'none';
+            tarikDataCloud(); 
+        } else {
+            document.getElementById('pesan-login').style.display = 'block';
+        }
+    }
+
+    function logoutSistem() {
+        if(confirm("Yakin ingin keluar (Logout)? Kamu butuh PIN lagi untuk masuk.")) {
+            localStorage.removeItem('isLoggedIn');
+            location.reload();
+        }
+    }
+
+    function tarikDataCloud() {
+        document.getElementById('loading-sync').style.display = 'block';
+        
+        if(!API_URL.includes("script.google.com")) {
+            document.getElementById('login-screen').style.display = 'none';
+            return;
+        }
+        
+        fetch(API_URL)
+        .then(res => res.json())
+        .then(dataCloud => {
+            if(dataCloud && dataCloud.dompet) {
+                db = dataCloud; 
+                localStorage.setItem('sistemUMKMPro', JSON.stringify(db));
+                updateSemuaTampilan();
+            }
+            document.getElementById('login-screen').style.display = 'none';
+        })
+        .catch(err => {
+            alert("Gagal koneksi ke Cloud Google! Masuk menggunakan data Offline.");
+            document.getElementById('login-screen').style.display = 'none';
+        });
+    } 
     let tempPesanWA = ""; 
     let idDompetAktif = null;
     let kasbonTabAktif = 'Piutang'; 
@@ -1091,6 +1175,13 @@
         // Panggil fungsi krusial ini!
         prosesBungaOtomatis();
         updateSemuaTampilan();
+
+        // Cek apakah sudah login sebelumnya
+        if(localStorage.getItem('isLoggedIn') === 'true') {
+            tarikDataCloud();
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+        }
     };
 
     // MESIN BUNGA PERSEN OTOMATIS
@@ -1136,8 +1227,19 @@
 
     function simpanData() { 
         db.transaksi.sort((a, b) => { if(a.tanggal === b.tanggal) return a.id - b.id; return a.tanggal > b.tanggal ? 1 : -1; });
-        localStorage.setItem('sistemUMKMPro', JSON.stringify(db)); 
+        
+        let jsonString = JSON.stringify(db);
+        localStorage.setItem('sistemUMKMPro', jsonString); 
         updateSemuaTampilan(); 
+        
+        if(API_URL.includes("script.google.com")) {
+            fetch(API_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' },
+                body: jsonString
+            }).catch(err => console.log("Gagal backup ke cloud", err));
+        }
     }
 
     // WAJIB: Memastikan semua komponen ter-render saat aplikasi mulai
@@ -1194,7 +1296,7 @@
     function bukaSubHalaman(sub) { 
         document.getElementById('main-menu-grid').style.display = 'none';
         
-        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak','sub-rapor-pelanggan'];
+        let allSub = ['sub-pengeluaran','sub-kategori','sub-grafik','sub-pelanggan','sub-alokasi','sub-dompet','sub-portal','sub-wa','sub-backup','sub-tema','sub-dompet-detail','sub-riwayat','sub-mutasi','sub-struk-manual','sub-struk-cetak','sub-rapor-pelanggan','sub-catatan'];
         allSub.forEach(s => { let el = document.getElementById(s); if(el) el.style.display = 'none'; });
 
         document.getElementById(sub).style.display = 'block'; 
@@ -1223,7 +1325,7 @@
             document.getElementById('setStrukUkuran').value = db.strukCetak.ukuranFont;
         }
         if(sub==='sub-struk-manual') { jd="Struk Manual"; document.getElementById('strukManualTanggal').value = ambilTanggal(); updatePreviewStruk(); }
-        
+        if(sub==='sub-catatan') { jd="Catatan Bebas"; renderCatatanList(); }
         document.getElementById('judulHalaman').innerText = jd; 
     }
     
@@ -1482,7 +1584,10 @@
             
             let hc = u.cicilan&&u.cicilan.length ? u.cicilan.map((c, idx) => ({c, idx})).reverse().map(item => `
                 <div class="cicilan-item flex-between" style="border-bottom:1px dashed #eee; padding-bottom:3px; margin-bottom:3px;">
-                    <span>${formatTanggalIndo(item.c.tanggal)}</span>
+                    <div>
+                        <span>${formatTanggalIndo(item.c.tanggal)}</span>
+                        ${item.c.keterangan ? `<br><span style="font-size:10px; color:#888;">📝 ${item.c.keterangan}</span>` : ''}
+                    </div>
                     <div style="display:flex; align-items:center;">
                         <span class="text-green">+ Rp ${formatRupiah(item.c.nominal)}</span>
                         <button type="button" class="btn-outline" style="padding:2px 6px; font-size:10px; width:auto; margin:0 0 0 5px;" onclick="bukaEditCicilan('${u.id}', ${item.idx})">✏️</button>
@@ -1706,6 +1811,7 @@
         document.getElementById('cicilanSisaTampil').innerText = "Catat Baru (Sisa Rp " + formatRupiah(s) + ")";
         document.getElementById('cicilanTgl').value = ambilTanggal(); 
         document.getElementById('cicilanNominal').value = "";
+        if(document.getElementById('cicilanKeterangan')) document.getElementById('cicilanKeterangan').value = "";
         if(document.getElementById('cicilanDompetMasuk')) document.getElementById('cicilanDompetMasuk').value = u.dompetId || 'none';
         document.getElementById('modal-cicilan').classList.add('active');
     }
@@ -1721,6 +1827,7 @@
         document.getElementById('cicilanSisaTampil').innerText = "Edit (Max Rp " + formatRupiah(s) + ")";
         document.getElementById('cicilanTgl').value = c.tanggal; 
         document.getElementById('cicilanNominal').value = formatRupiah(c.nominal);
+        if(document.getElementById('cicilanKeterangan')) document.getElementById('cicilanKeterangan').value = c.keterangan || "";
         if(document.getElementById('cicilanDompetMasuk')) document.getElementById('cicilanDompetMasuk').value = u.dompetId || 'none';
         document.getElementById('modal-cicilan').classList.add('active');
     }
@@ -1756,6 +1863,7 @@ function eksekusiSimpanCicilan(e) {
             let nom = getAngkaMurni(document.getElementById('cicilanNominal').value); 
             let tgl = document.getElementById('cicilanTgl').value;
             let dMasuk = document.getElementById('cicilanDompetMasuk').value;
+            let ket = document.getElementById('cicilanKeterangan') ? document.getElementById('cicilanKeterangan').value.trim() : "";
             
             if(nom <= 0 || !tgl) return alert("Isi tanggal dan nominal dengan benar!");
 
@@ -1768,8 +1876,9 @@ function eksekusiSimpanCicilan(e) {
                 u.cicilan[idx].nominal = nom; 
                 u.cicilan[idx].tanggal = tgl; 
                 u.cicilan[idx].hari = getNamaHari(tgl);
+                u.cicilan[idx].keterangan = ket;
             } else {
-                u.cicilan.push({ id: Date.now(), tanggal: tgl, hari: getNamaHari(tgl), nominal: nom }); 
+                u.cicilan.push({ id: Date.now(), tanggal: tgl, hari: getNamaHari(tgl), nominal: nom, keterangan: ket }); 
             }
             
             if(dMasuk !== 'none') {
@@ -3449,6 +3558,75 @@ function salinBackupJSON() {
         URL.revokeObjectURL(url);
         
         alert("✅ File backup (.json) berhasil didownload!\nSimpan file ini baik-baik di HP atau Google Drive.");
+    }
+    // ==========================================
+    // MESIN CATATAN BEBAS (NOTES)
+    // ==========================================
+    function renderCatatanList() {
+        if(!db.catatan) db.catatan = [];
+        let html = db.catatan.slice().reverse().map(c => `
+        <div class="list-item" style="background:#fff; border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div class="flex-between" style="margin-bottom:8px; border-bottom:1px dashed #eee; padding-bottom:5px;">
+                <b style="color:var(--primary); font-size:14px;">📌 ${c.judul}</b>
+                <span class="text-small" style="color:#888;">${formatTanggalIndo(c.tanggal)}</span>
+            </div>
+            <div style="font-size:13px; color:#333; margin-bottom:10px; white-space:pre-wrap;">${c.isi}</div>
+            <div style="text-align:right;">
+                <button type="button" class="btn-outline" style="padding:4px 10px; font-size:11px; width:auto; margin:0 5px 0 0;" onclick="editCatatan('${c.id}')">✏️ Edit</button>
+                <button type="button" class="btn-red" style="padding:4px 10px; font-size:11px; width:auto; margin:0;" onclick="hapusCatatan('${c.id}')">🗑️ Hapus</button>
+            </div>
+        </div>
+        `).join('');
+        document.getElementById('listCatatanDinamis').innerHTML = html || '<div class="text-center text-small" style="padding:20px;">Belum ada catatan.</div>';
+    }
+
+    function eksekusiSimpanCatatan(e) {
+        e.preventDefault();
+        let idEdit = document.getElementById('editCatatanId').value;
+        let judul = document.getElementById('catatanJudul').value.trim();
+        let isi = document.getElementById('catatanIsi').value.trim();
+        
+        if(!judul || !isi) return alert("Judul dan isi catatan wajib diisi!");
+        
+        if(!db.catatan) db.catatan = [];
+        
+        if(idEdit !== "") {
+            let c = db.catatan.find(x => String(x.id) === String(idEdit));
+            if(c) { c.judul = judul; c.isi = isi; }
+        } else {
+            db.catatan.push({ id: Date.now(), tanggal: ambilTanggal(), judul: judul, isi: isi });
+        }
+        
+        simpanData();
+        batalEditCatatan();
+        renderCatatanList();
+    }
+
+    function editCatatan(id) {
+        let c = db.catatan.find(x => String(x.id) === String(id));
+        if(!c) return;
+        document.getElementById('editCatatanId').value = c.id;
+        document.getElementById('catatanJudul').value = c.judul;
+        document.getElementById('catatanIsi').value = c.isi;
+        document.getElementById('btnSimpanCatatan').innerText = "💾 Simpan Perubahan";
+        document.getElementById('btnBatalCatatan').style.display = "inline-block";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function batalEditCatatan() {
+        document.getElementById('editCatatanId').value = "";
+        document.getElementById('catatanJudul').value = "";
+        document.getElementById('catatanIsi').value = "";
+        document.getElementById('btnSimpanCatatan').innerText = "💾 Simpan Catatan";
+        document.getElementById('btnBatalCatatan').style.display = "none";
+    }
+
+    function hapusCatatan(id) {
+        if(confirm("Yakin ingin menghapus catatan ini?")) {
+            db.catatan = db.catatan.filter(c => String(c.id) !== String(id));
+            simpanData();
+            renderCatatanList();
+        }
     }
 
     function restoreBackupJSON() {
